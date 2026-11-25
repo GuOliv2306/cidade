@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JogoJusto — Estratégia e expressão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<style>
+@font-face {
+  font-family: 'DSEG7';
+  src: url('https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-Bold.woff2') format('woff2');
+  font-weight: 700; font-display: swap;
+}
+/* tokens do deck de referência (index-copia.html); --muted e --text clareados para projetor */
+:root {
+  --g: 0.7;
+  --logo: #FF7A18; --cyan: #00E6DF; --magenta: #FF2D9B;
+  --white: #EEF1F8; --muted: #a9acc0; --text: #dfe2ee;
+  --line: rgba(255,255,255,.18);
+}
+html, body { margin: 0; height: 100%; background: #05050b; overflow: hidden; }
+#stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: hidden; cursor: default; }
+#stage > canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#stage > canvas.world { image-rendering: pixelated; }
+#stage > canvas.led { pointer-events: none; }
+#stage > div { position: absolute; inset: 0; }
+
+/* ── abertura: tela preta com o nome vazado; a fenda é o miolo do último O ── */
+#intro { z-index: 5; overflow: hidden; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+#intro { animation: intro-in .5s both; }
+@keyframes intro-in { from { opacity: 0; } }
+#intro .hole { position: absolute; width: 0; height: 0; border-radius: 26% / 20%; box-shadow: 0 0 0 400vmax #000; }   /* o preto é a sombra: o furo é o próprio elemento */
+#intro .word { position: relative; font: 700 calc(var(--W) * .125) / 1 'Chakra Petch', sans-serif; text-transform: uppercase; white-space: nowrap; color: transparent; -webkit-text-stroke: max(1.5px, calc(var(--W) * .0013)) rgba(238,241,248,.55); will-change: transform, opacity; }
+#intro .justo { transition: color .9s, text-shadow .9s, -webkit-text-stroke-color .9s; }
+#intro.lit .justo { color: var(--white); -webkit-text-stroke-color: transparent; text-shadow: 0 0 calc(10px*var(--g)) var(--cyan), 0 0 calc(30px*var(--g)) color-mix(in srgb, var(--cyan) 45%, transparent); }
+#stage.pano .slide * { text-shadow: none !important; box-shadow: none !important; }   /* telões pequenos e ao longe: o brilho não aparece e custa fps */
+
+/* ── telão: canvas fixo 1600×900. O fundo animado vem do shader atrás; aqui só o véu escuro e o grid ── */
+.slide {
+  --acc: var(--cyan);
+  width: 1600px; height: 900px; box-sizing: border-box;
+  font-family: 'Chakra Petch', system-ui, sans-serif; font-size: 30px; color: var(--text); letter-spacing: .01em;
+  background:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 46px 46px,
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 46px 46px,
+    rgba(5,6,14,.68);
+  border: 2px solid color-mix(in srgb, var(--acc) 55%, transparent);
+}
+.slide h1, .slide h2, .slide h3 { margin: 0; text-transform: uppercase; color: var(--white); font-weight: 700; text-wrap: balance; }
+.slide p, .slide ul { margin: 0; padding: 0; list-style: none; }
+.neon-o { color: var(--logo); text-shadow: 0 0 calc(10px*var(--g)) var(--logo), 0 0 calc(34px*var(--g)) color-mix(in srgb, var(--logo) 55%, transparent); }
+.neon-c { color: var(--cyan); text-shadow: 0 0 calc(10px*var(--g)) var(--cyan), 0 0 calc(30px*var(--g)) color-mix(in srgb, var(--cyan) 50%, transparent); }
+.neon-w { color: var(--white); text-shadow: 0 0 calc(10px*var(--g)) var(--cyan), 0 0 calc(30px*var(--g)) color-mix(in srgb, var(--cyan) 45%, transparent); }
+.hl { color: var(--acc); text-shadow: 0 0 calc(10px*var(--g)) var(--acc), 0 0 calc(30px*var(--g)) color-mix(in srgb, var(--acc) 50%, transparent); }
+.digits { font-family: 'DSEG7', monospace; font-weight: 700; letter-spacing: .05em; }
+
+.frame { position: absolute; inset: 0; padding: 26px 76px 22px; display: flex; flex-direction: column; gap: 26px; }
+.corner { position: absolute; width: 26px; height: 26px; border: 0 solid var(--cyan); }   /* sem filter/mask nos telões: cada um vira um passe extra por quadro na panorâmica */
+.corner.tl { top: 14px; left: 14px; border-width: 3px 0 0 3px; }
+.corner.tr { top: 14px; right: 14px; border-width: 3px 3px 0 0; }
+.corner.bl { bottom: 14px; left: 14px; border-width: 0 0 3px 3px; }
+.corner.br { bottom: 14px; right: 14px; border-width: 0 3px 3px 0; }
+
+/* faixa de canal: bloco de cor cheia, como cabeçalho de telão */
+.bar { display: flex; align-items: center; gap: 24px; font-size: 22px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+/* cantos facetados por gradiente, não clip-path: recorte em dez telões 3D derruba o fps da panorâmica */
+.chip { color: #05050b; font-weight: 700; padding: 9px 20px 8px; background: linear-gradient(135deg, transparent 7px, var(--acc) 7px) 0 0 / 51% 100% no-repeat, linear-gradient(-45deg, transparent 7px, var(--acc) 7px) 100% 0 / 51% 100% no-repeat; }
+.bar .passo { color: var(--text); }
+.bar .brand { margin-left: auto; font-size: 26px; font-weight: 700; letter-spacing: .04em; }
+.bar .brand b { color: var(--logo); } .bar .brand i { font-style: normal; color: var(--white); }
+
+.head { display: flex; flex-direction: column; gap: 14px; }
+.head h2 { font-size: 68px; line-height: 1; max-width: 20em; }
+.head .sub { font-size: 31px; line-height: 1.3; color: var(--muted); max-width: 40em; }
+
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+.nota { display: flex; align-items: center; gap: 16px; font-size: 22px; color: var(--muted); letter-spacing: .03em; }
+.tag { flex: none; font-size: 18px; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--acc); border: 2px solid var(--acc); padding: 3px 10px 2px; }
+
+/* rodapé = letreiro corrido + número */
+.foot { display: flex; align-items: center; gap: 30px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 21px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
+.tick { flex: 1; overflow: hidden; white-space: nowrap; }
+/* só o telão atual anima: letreiro animado vira camada larga na GPU, e dez delas derrubam a panorâmica */
+.run { display: inline-block; }
+.slide.on .run { animation: tick 45s linear infinite; }
+.run em { font-style: normal; color: var(--acc); padding: 0 22px; }
+@keyframes tick { to { transform: translateX(-50%); } }
+.foot .num { font-family: 'DSEG7', monospace; font-size: 24px; letter-spacing: .05em; color: var(--cyan); text-shadow: 0 0 6px var(--cyan); }
+
+/* capa */
+.cover { display: grid; grid-template-columns: 1.5fr 1fr; align-items: center; gap: 60px; }
+.cover h1 { font-size: 172px; line-height: .88; }
+.tagline { display: flex; align-items: center; margin-top: 26px; font-size: 26px; font-weight: 600; letter-spacing: .34em; color: var(--white); }
+.tagline::before { content: ""; width: 10px; height: 10px; background: var(--magenta); transform: rotate(45deg); margin-right: 18px; box-shadow: 0 0 calc(7px*var(--g)) var(--magenta); }
+.tagline::after { content: ""; flex: 1; height: 1px; margin-left: 20px; background: linear-gradient(90deg, var(--magenta), transparent); }
+.cover-sub { margin-top: 52px !important; font-size: 44px; font-weight: 600; color: var(--white); text-transform: uppercase; letter-spacing: .06em; line-height: 1.1; }
+.cover-sub span { display: block; font-size: 26px; letter-spacing: .24em; color: var(--muted); margin-top: 14px; }
+.agenda { display: flex; flex-direction: column; gap: 22px; }
+.agenda div { padding: 22px 26px; border-left: 6px solid var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
+.agenda b { display: block; font-size: 22px; letter-spacing: .26em; color: var(--acc); }
+.agenda span { font-size: 38px; font-weight: 700; text-transform: uppercase; color: var(--white); line-height: 1.1; }
+
+/* colunas */
+.cols { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 36px; }
+.cols > div { border-top: 3px solid color-mix(in srgb, var(--acc) 55%, transparent); padding: 20px 22px 22px 0; display: flex; flex-direction: column; gap: 12px; }
+.cols .n { font-size: 22px; font-weight: 700; letter-spacing: .26em; color: var(--acc); display: flex; align-items: center; gap: 14px; }
+.cols h3 { font-size: 40px; line-height: 1; }
+.cols .v { font-size: 30px; line-height: 1.28; color: var(--text); }
+.cols .pq { font-size: 25px; line-height: 1.3; color: var(--white); margin-top: auto !important; padding-top: 12px; border-top: 1px solid var(--line); }
+.cols .pq b { display: block; font-size: 18px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.cols > .hot { border-top-color: var(--acc); background: color-mix(in srgb, var(--acc) 13%, transparent); padding-left: 22px; }
+.cols .hot .tag { background: var(--acc); color: #05050b; }
+
+/* linhas chave/valor */
+.rows > div { display: grid; grid-template-columns: 250px 1fr; gap: 30px; align-items: baseline; padding: 17px 0; border-bottom: 1px solid var(--line); }
+.rows > div:first-child { border-top: 1px solid var(--line); }
+.rows .k { font-size: 25px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--acc); }
+.rows .v { font-size: 33px; font-weight: 500; line-height: 1.25; color: var(--white); }
+
+/* números da escuta */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 34px; }
+.stats > div { border-top: 3px solid var(--line); padding-top: 14px; }
+.stats .n { font-size: 116px; font-weight: 700; line-height: 1; color: var(--white); font-variant-numeric: tabular-nums; }
+.stats .hot .n { color: var(--acc); text-shadow: 0 0 calc(18px*var(--g)) color-mix(in srgb, var(--acc) 60%, transparent); }
+.stats .hot { border-top-color: var(--acc); }
+.stats .l { font-size: 28px; line-height: 1.25; color: var(--text); margin-top: 8px; }
+.fecho { font-size: 46px; font-weight: 700; text-transform: uppercase; color: var(--white); line-height: 1.05; }
+
+/* dois painéis facetados */
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+.panel { background: rgba(8,10,22,.6); border: 1px solid var(--line); padding: 22px 28px 24px; }
+.panel h3 { font-size: 24px; letter-spacing: .2em; margin-bottom: 12px; }
+.panel.a { border-color: color-mix(in srgb, var(--cyan) 55%, transparent); } .panel.a h3 { color: var(--cyan); }
+.panel.b { border-color: color-mix(in srgb, var(--acc) 60%, transparent); } .panel.b h3 { color: var(--acc); }
+.panel li { position: relative; font-size: 29px; line-height: 1.28; color: var(--white); padding: 8px 0 8px 26px; }
+.panel li::before { content: ""; position: absolute; left: 0; top: .82em; width: 12px; height: 2px; background: currentColor; opacity: .7; }
+.swatches { display: flex; align-items: center; gap: 8px; font-size: 20px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.swatches i { width: 70px; height: 30px; }
+.swatches span { margin: 0 18px 0 8px; }
+
+/* moodboard: mosaico de telas */
+.mood { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 232px; gap: 18px; }
+.tile { display: flex; flex-direction: column; border: 1px solid var(--line); background: rgba(8,10,22,.55); overflow: hidden; }
+.tile .vis { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; gap: 20px; overflow: hidden; }
+.tile .cap { padding: 9px 16px 11px; border-top: 1px solid var(--line); font-size: 23px; line-height: 1.2; color: var(--white); }
+.tile .cap b { display: block; font-size: 17px; letter-spacing: .24em; text-transform: uppercase; color: var(--acc); margin-bottom: 2px; }
+.vis.led { background: linear-gradient(100deg, transparent 10%, rgba(4,18,26,.78) 45%, transparent 80%), radial-gradient(circle, var(--cyan) 36%, transparent 40%) 0 0 / 12px 12px, #04121a; }
+.vis.paleta { gap: 0; align-items: stretch; } .vis.paleta i { flex: 1; }
+.vis.tipo .aa { font-size: 96px; font-weight: 700; color: var(--white); line-height: 1; }
+.vis.tipo .digits { font-size: 46px; }
+.vis.refs { flex-direction: column; gap: 4px; font-size: 27px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--white); }
+.vis.refs span:nth-child(2) { color: var(--cyan); } .vis.refs span:nth-child(3) { color: var(--magenta); }
+.vis.pixel { align-items: flex-end; gap: 6px; padding: 0 18px; background: linear-gradient(#170a33, #3a1450 60%, #0f5e66); }
+.vis.pixel i { flex: 1; background: repeating-linear-gradient(0deg, transparent 0 6px, #0a0a18 6px 12px), repeating-linear-gradient(90deg, #ffb14a 0 6px, #0a0a18 6px 12px); border-top: 4px solid var(--cyan); }
+.vis.pixel i:nth-child(odd) { background: repeating-linear-gradient(0deg, transparent 0 6px, #0a0a18 6px 12px), repeating-linear-gradient(90deg, #39d6d0 0 6px, #0a0a18 6px 18px); border-top-color: var(--magenta); }
+.vis.rotulo span { background: var(--white); color: #05050b; font-size: 32px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: center; line-height: 1.05; padding: 14px 26px; border: 6px solid #05050b; outline: 3px solid var(--white); }
+
+/* tom de voz */
+.voz { display: grid; grid-template-columns: 250px 1fr 44px 1.08fr; column-gap: 24px; align-items: center; }
+.voz > * { padding: 15px 0; border-bottom: 1px solid var(--line); align-self: stretch; display: flex; align-items: center; }
+.voz .th { font-size: 20px; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); padding: 0 0 10px; }
+.voz .th.to { color: var(--acc); }
+.voz .k { font-size: 24px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--cyan); line-height: 1.15; }
+.voz .de { font-size: 27px; line-height: 1.25; color: var(--muted); }
+.voz .arr { color: var(--acc); font-size: 34px; font-weight: 700; justify-content: center; }
+.voz .para { font-size: 31px; font-weight: 600; line-height: 1.22; color: var(--white); }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
+import { paintFacade } from './mundo/fachadas.js';
+import buildAtmosphere from './mundo/atmosfera.js';
+import buildStreet from './mundo/rua.js';
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTEÚDO DOS TELÕES — edite só aqui.
+   etapa: 'estrategia' (laranja) ou 'expressao' (magenta).
+   titulo + destaque formam o título (destaque sai em neon).
+   corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'mood' | 'voz'.
+   nota: linha pequena no fim; proposta: true põe a etiqueta PROPOSTA.
+   ═══════════════════════════════════════════════════════════════ */
+const SLOGAN = 'Jogando pela sua segurança';
+const ETAPAS = { estrategia: { nome: 'Estratégia de marca', cor: 'var(--logo)' }, expressao: { nome: 'Expressão de marca', cor: 'var(--magenta)' } };
+const SLIDES = [
+  { capa: true,
+    subtitulo: 'Estratégia e expressão de marca', detalhe: 'FGV Quest · 2026',
+    equipe: 'Ofélia Mirella · André Essinger · Gustavo Oliveira · Erik Rolin · Manoella Alcantara' },
+
+  // ───────── ESTRATÉGIA DE MARCA ─────────
+  { etapa: 'estrategia', passo: 'O que é esta etapa',
+    titulo: 'Do diagnóstico', destaque: 'à decisão.',
+    subtitulo: 'Estratégia de marca é escolher o que o JogoJusto vai ser, para quem e ao lado de quem, antes de desenhar qualquer peça.',
+    corpo: { tipo: 'cols', itens: [
+      { n: 'Antes', k: 'Diagnóstico', v: 'O que a marca é por dentro e como foi lida por fora.' },
+      { n: 'Agora', k: 'Estratégia', v: 'Território, posicionamento e promessa: as escolhas.', hot: true },
+      { n: 'Depois', k: 'Expressão', v: 'Como essas escolhas aparecem em imagem e em texto.' },
+    ] } },
+
+  { etapa: 'estrategia', passo: 'Para que serve',
+    titulo: 'Uma régua para', destaque: 'toda decisão seguinte.',
+    subtitulo: 'Sem estratégia, cada peça decide sozinha o que a marca é.',
+    corpo: { tipo: 'rows', itens: [
+      { k: 'Foco', v: 'Dizer não ao que foge do recorte: mecânicas predatórias, não faixa etária.' },
+      { k: 'Coerência', v: 'Índice, site e Instagram falando como a mesma marca.' },
+      { k: 'Diferença', v: 'Mostrar o que só o JogoJusto entrega: quais mecânicas existem e quanto pesam.' },
+      { k: 'Critério', v: 'Julgar cor, nome e texto pelo que a marca prometeu, não por gosto.' },
+    ] } },
+
+  { etapa: 'estrategia', passo: 'O que vimos do diagnóstico',
+    titulo: 'A primeira escuta:', destaque: 'entender vem antes de confiar.',
+    corpo: { tipo: 'stats', itens: [
+      { n: '63%', l: 'dizem que a FGV aumenta a confiança' },
+      { n: '60%', l: 'usariam a nota na hora de escolher um jogo' },
+      { n: '42%', l: 'entenderam a nota por completo', hot: true },
+      { n: '19%', l: 'veem a marca ligada ao jogador', hot: true },
+    ], fecho: 'Ninguém confia no que', fechoHl: 'não entende.' },
+    nota: 'n = 43 · grupos pequenos de jogadores e familiares · amostra não representativa' },
+
+  { etapa: 'estrategia', passo: 'Escolhas e justificativas',
+    titulo: 'Três territórios.', destaque: 'Tradução primeiro.',
+    subtitulo: 'Evidência e Fronteira continuam na marca. A prioridade de agora é ser entendido.',
+    corpo: { tipo: 'cols', itens: [
+      { n: '01', tag: 'Prioridade', k: 'Tradução', hot: true,
+        v: 'Levar a linguagem técnica dos jogos para a que pais e escolas entendem.',
+        pq: 'Só 42% entenderam a nota por completo.' },
+      { n: '02', k: 'Evidência',
+        v: 'Dado mensurável no lugar do achismo, com lastro da FGV Quest.',
+        pq: 'Para 63%, a FGV aumenta a confiança.' },
+      { n: '03', k: 'Fronteira',
+        v: 'Ocupar o que a classificação indicativa deixa vago, sem substituí-la.',
+        pq: 'Nota e faixa etária ainda podem se confundir.' },
+    ] } },
+
+  // ───────── EXPRESSÃO DE MARCA ─────────
+  { etapa: 'expressao', passo: 'O que é a etapa',
+    titulo: 'A estratégia', destaque: 'ganha corpo.',
+    subtitulo: 'Expressão de marca é tudo o que o público vê e lê do JogoJusto.',
+    corpo: { tipo: 'cols', itens: [
+      { n: 'Visual', k: 'O que se vê', v: 'Logo, cor, tipografia e a nota do índice.' },
+      { n: 'Verbal', k: 'O que se lê', v: 'Nome, slogan e tom de voz.' },
+      { n: 'Em uso', k: 'Onde aparece', v: 'No índice, no site e no conteúdo do Instagram.' },
+    ] } },
+
+  { etapa: 'expressao', passo: 'Análise da identidade visual atual',
+    titulo: 'Identidade coesa,', destaque: 'com um risco de leitura.',
+    corpo: { tipo: 'duo', lados: [
+      { k: 'O que sustenta', itens: [
+        'Sistema único: logo JOGO + JUSTO, neon sobre escuro, Chakra Petch.',
+        'DSEG7 e as cores de estado ficam reservadas à nota do índice.',
+        'Naming e paleta têm racional documentado.' ] },
+      { k: 'O que arrisca', itens: [
+        'A estética neon puxa para o jogador; o usuário prioritário são pais e responsáveis.',
+        'Só 19% ligaram a marca ao jogador e 30% a viram como imparcial.',
+        'Texto pequeno sobre fundo escuro pesa contra a Tradução.' ] },
+    ], swatches: true },
+    nota: 'Leitura da equipe sobre a identidade atual. Percentuais da escuta n = 43.' },
+
+  { etapa: 'expressao', passo: 'Moodboard do que pode ser',
+    titulo: 'Moodboard:', destaque: 'o que pode ser.',
+    corpo: { tipo: 'mood', tiles: [
+      { vis: 'led', k: 'Telão de LED', v: 'Nota grande, lida de longe.' },
+      { vis: 'paleta', k: 'Neon sobre escuro', v: 'Cor como acento, não como fundo de leitura.' },
+      { vis: 'tipo', k: 'Tipografia', v: 'Chakra Petch no texto, DSEG7 só na nota.' },
+      { vis: 'refs', k: 'Atmosfera', v: 'Referências do manual de marca.' },
+      { vis: 'pixel', k: 'Cidade em pixel', v: 'O universo do jogo como cenário.' },
+      { vis: 'rotulo', k: 'Clareza de rótulo', v: 'Selos de alimentos como referência de leitura.' },
+    ] },
+    nota: 'Direções em estudo, não identidade aprovada.', proposta: true },
+
+  { etapa: 'expressao', passo: 'Tom de voz · construções e entregas',
+    titulo: 'Rigor de instituição,', destaque: 'energia de jogador.',
+    corpo: { tipo: 'voz', itens: [
+      { k: 'Termo do jogo, explicado na hora', de: '“Este jogo utiliza mecânicas de monetização aleatória.”', para: '“Aqui tem loot box: você paga sem saber o que vem.”' },
+      { k: 'Mede, não manda', de: '“Jogo perigoso. Não deixe seu filho jogar.”', para: '“Nota 68, atenção. Veja o que pesou na conta.”' },
+      { k: 'Prova, não elogio', de: '“O índice mais confiável do mercado.”', para: '“Metodologia aberta, com lastro da FGV Quest.”' },
+    ] },
+    nota: 'Exemplos de redação, não peças publicadas. A nota 68 é ilustrativa.', proposta: true },
+
+  { etapa: 'expressao', passo: 'Escolhas e justificativas',
+    titulo: 'O que fica,', destaque: 'o que ajusta, o que entra.',
+    corpo: { tipo: 'rows', itens: [
+      { k: 'Fica', v: 'Logo, paleta neon e DSEG7 só na nota: o sistema já é coeso.' },
+      { k: 'Ajusta', v: 'Texto maior e mais contraste, para quem não joga ler sem esforço.' },
+      { k: 'Entra', v: 'Tom de voz da Tradução: termo do jogo explicado, número antes do adjetivo.' },
+      { k: 'Entra', v: 'Nota sempre ao lado da faixa etária, nunca no lugar dela.' },
+    ] },
+    nota: 'Escolhas da equipe para a próxima etapa.', proposta: true },
+];
+console.assert(SLIDES.length >= 1 && SLIDES.length <= 12, 'SLIDES deve ter de 1 a 12 itens');
+
+/* ── ajustes ── */
+const FOV = 40, FILL = 0.85;          // painel ocupa 85% da tela quando a câmera para
+const SPACING = 24, BW = 20, BD = 12; // distância entre prédios, largura e profundidade
+const PIXEL_ROWS = 270;               // altura aproximada do render do mundo antes do upscale
+const LED_COLS = 270;                 // LEDs por linha do telão (aproximado; ajustado para dar pixels inteiros)
+const HOP_MS = 1500, PANO_MS = 2200;
+
+/* ── telões em HTML (texto nítido, fora do render pixelado) ── */
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const MOOD_VIS = {
+  led: '', paleta: '<i style="background:#05050b"></i><i style="background:#FF7A18"></i><i style="background:#00E6DF"></i><i style="background:#FF2D9B"></i><i style="background:#EEF1F8"></i>',
+  tipo: '<span class="aa">Aa</span><span class="digits neon-c">0-100</span>',
+  refs: '<span>Blade Runner 2049</span><span>Cyberpunk 2077</span><span>Replaced</span>',
+  pixel: [46, 78, 58, 92, 40, 70, 54, 84].map(h => `<i style="height:${h}%"></i>`).join(''),
+  rotulo: '<span>Lê-se em<br>1 segundo</span>',
+};
+const BODY = {
+  cols(c) { const g = el('div', 'cols');
+    for (const it of c.itens) { const d = el('div', it.hot ? 'hot' : ''), n = el('div', 'n', it.n);
+      if (it.tag) n.append(el('span', 'tag', it.tag));
+      d.append(n, el('h3', '', it.k), el('p', 'v', it.v));
+      if (it.pq) { const p = el('p', 'pq'); p.append(el('b', '', 'Por quê'), it.pq); d.append(p); }
+      g.append(d); }
+    return [g]; },
+  rows(c) { const g = el('div', 'rows');
+    for (const it of c.itens) { const d = el('div'); d.append(el('span', 'k', it.k), el('span', 'v', it.v)); g.append(d); }
+    return [g]; },
+  stats(c) { const g = el('div', 'stats');
+    for (const it of c.itens) { const d = el('div', it.hot ? 'hot' : ''); d.append(el('div', 'n', it.n), el('div', 'l', it.l)); g.append(d); }
+    const f = el('p', 'fecho', c.fecho + ' '); f.append(el('span', 'hl', c.fechoHl));
+    return [g, f]; },
+  duo(c) { const g = el('div', 'duo');
+    c.lados.forEach((l, i) => { const p = el('div', 'panel ' + 'ab'[i]), ul = el('ul');
+      for (const t of l.itens) ul.append(el('li', '', t));
+      p.append(el('h3', '', l.k), ul); g.append(p); });
+    if (!c.swatches) return [g];
+    const s = el('div', 'swatches');   // cores de estado aparecem só como amostra da nota do índice
+    s.innerHTML = '<i style="background:#FF7A18"></i><i style="background:#00E6DF"></i><i style="background:#FF2D9B"></i><span>base neon</span><i style="background:#1FE6A6"></i><i style="background:#FFC400"></i><i style="background:#C24B2B"></i><span>estados da nota: seguro · atenção · alto risco</span>';
+    return [g, s]; },
+  mood(c) { const g = el('div', 'mood');
+    for (const t of c.tiles) { const d = el('div', 'tile'), v = el('div', 'vis ' + t.vis), cap = el('div', 'cap');
+      v.innerHTML = MOOD_VIS[t.vis]; cap.append(el('b', '', t.k), t.v); d.append(v, cap); g.append(d); }
+    return [g]; },
+  voz(c) { const g = el('div', 'voz');
+    g.append(el('div', 'th', 'Princípio'), el('div', 'th', 'Em vez de'), el('div', 'th'), el('div', 'th to', 'Dizemos'));
+    for (const it of c.itens) g.append(el('div', 'k', it.k), el('div', 'de', it.de), el('div', 'arr', '→'), el('div', 'para', it.para));
+    return [g]; },
+};
+function buildSlide(s, i) {
+  const root = el('section', 'slide'), et = ETAPAS[s.etapa];
+  if (et) root.style.setProperty('--acc', et.cor);
+  for (const c of ['tl', 'tr', 'bl', 'br']) root.append(el('div', 'corner ' + c));
+  const frame = el('div', 'frame'), body = el('div', 'body'), bar = el('div', 'bar');
+  let ticker;
+  if (s.capa) {
+    const cover = el('div', 'cover'), left = el('div'), h1 = el('h1'), ag = el('div', 'agenda');
+    h1.append(el('span', 'neon-o', 'JOGO'), el('span', 'neon-w', 'JUSTO'));
+    const sub = el('p', 'cover-sub', s.subtitulo); sub.append(el('span', '', s.detalhe));
+    left.append(h1, el('div', 'tagline', SLOGAN.toUpperCase()), sub);
+    Object.values(ETAPAS).forEach((e, k) => { const d = el('div'); d.style.setProperty('--acc', e.cor); d.append(el('b', '', '0' + (k + 1)), el('span', '', e.nome)); ag.append(d); });
+    cover.append(left, ag); body.append(cover);
+    bar.append(el('span', 'chip', 'FGV Quest'), el('span', 'passo', 'Índice de segurança para jogos digitais'));
+    ticker = [s.equipe, SLOGAN];
+  } else {
+    const same = SLIDES.filter(x => x.etapa === s.etapa), k = same.indexOf(s) + 1;
+    bar.append(el('span', 'chip', et.nome), el('span', 'passo', `0${k}/0${same.length} · ${s.passo}`));
+    const head = el('div', 'head'), h2 = el('h2', '', s.titulo + ' ');
+    if (s.destaque) h2.append(el('span', 'hl', s.destaque));
+    head.append(h2); if (s.subtitulo) head.append(el('p', 'sub', s.subtitulo));
+    frame.append(head);
+    body.append(...BODY[s.corpo.tipo](s.corpo));
+    if (s.nota) { const n = el('p', 'nota'); if (s.proposta) n.append(el('span', 'tag', 'Proposta')); n.append(s.nota); body.append(n); }
+    ticker = [et.nome, s.passo, SLOGAN];
+  }
+  const brand = el('span', 'brand'); brand.append(el('b', '', 'JOGO'), el('i', '', 'JUSTO')); bar.append(brand);
+  frame.prepend(bar);
+  const foot = el('div', 'foot'), tick = el('div', 'tick'), run = el('span', 'run');
+  const reps = 2 * Math.ceil(100 / ticker.join('').length);   // duas metades iguais, cada uma mais larga que a faixa
+  for (let r = 0; r < reps; r++) for (const t of ticker) run.append(t, el('em', '', '◆'));
+  tick.append(run);
+  foot.append(tick, el('span', 'num', String(i + 1).padStart(2, '0') + '/' + String(SLIDES.length).padStart(2, '0')));
+  frame.append(body, foot); root.append(frame);
+  return root;
+}
+
+/* ── cena ── */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(1); renderer.domElement.className = 'world';
+const css = new CSS3DRenderer();
+const ledRenderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });   // máscara de LED, em resolução cheia, por cima do HTML
+ledRenderer.setPixelRatio(1); ledRenderer.domElement.className = 'led';
+stage.append(renderer.domElement, css.domElement, ledRenderer.domElement);
+
+const scene = new THREE.Scene(), ledScene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x2a1650, 50, 330);
+const camera = new THREE.PerspectiveCamera(FOV, 16 / 9, 0.5, 700);
+
+// aleatório com semente: a cidade é a mesma a cada abertura
+let seed = 20261113;
+const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const ri = (a, b) => Math.floor(a + rnd() * (b - a + 1));
+const pick = a => a[Math.floor(rnd() * a.length)];
+
+function tex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+const NEON = ['#00E6DF', '#FF2D9B', '#FF7A18', '#1FE6A6', '#ff4a4a', '#6fa8ff'];
+const WARM = ['#ffb14a', '#ff8a2a', '#ffd27a'];
+
+const roofMat = new THREE.MeshBasicMaterial({ color: 0x0d0c1c });
+function building(x, z, w, h, d, t) {
+  const m = new THREE.MeshBasicMaterial({ map: t });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [m, m, roofMat, roofMat, m, m]);
+  b.position.set(x, h / 2, z);
+  scene.add(b);
+  return b;
+}
+const box = (w, h, d, color, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color })); m.position.set(x, y, z); scene.add(m); return m; };
+
+/* ── shaders dos telões ── */
+const VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }';
+// fundo do telão, no render de baixa resolução: faixas de cor em degraus que deslizam devagar
+const BACK_FRAG = `
+uniform float uTime; uniform vec3 uColor; varying vec2 vUv;
+void main(){
+  float w = sin((vUv.x * 2.2 - vUv.y * 1.4) * 6.2831 + uTime * .3) * .5 + .5;
+  vec3 col = mix(vec3(.03, .035, .09), uColor, floor(w * 6.) / 6. * .36);
+  col += uColor * .34 * pow(1. - vUv.y, 4.);      // brilho subindo da base
+  gl_FragColor = vec4(col, 1.);
+  #include <colorspace_fragment>
+}`;
+// máscara por cima do HTML: grade de LEDs, faixa de refresh, e o acendimento de cima para baixo
+const LED_FRAG = `
+uniform float uTime, uOn, uCells, uMask; varying vec2 vUv;
+void main(){
+  vec2 g = vUv * vec2(uCells, uCells * 9. / 16.);
+  vec2 f = abs(fract(g) - .5);
+  float cell = 1. / max(fwidth(g.x), fwidth(g.y));            // tamanho do LED em pixels de tela
+  float fade = clamp((cell - 2.) / 1.5, 0., 1.);              // some quando o LED fica pequeno (evita moiré no voo)
+  float dark = smoothstep(.30, .5, max(f.x, f.y)) * .26 * fade * uMask;
+  float y = 1. - vUv.y;
+  dark = max(dark, step(uOn, y) * .62);                        // parte ainda apagada
+  float light = smoothstep(.05, 0., abs(fract(y - uTime * .06) - .5)) * .035 * uMask;   // faixa de refresh
+  light += smoothstep(.025, 0., abs(y - uOn)) * step(.001, uOn) * step(uOn, .999) * .8; // linha de acendimento
+  gl_FragColor = vec4(vec3(light), clamp(dark + light, 0., 1.));
+}`;
+const uTime = { value: 0 }, uCells = { value: LED_COLS }, uMask = { value: 1 };
+const panelGeo = new THREE.PlaneGeometry(16, 9);
+
+const span = SPACING * (SLIDES.length - 1);
+
+// prédios dos slides + pose da câmera em cada um
+const D = (9 / FILL) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
+const BASES = ['#1d1a34', '#262138', '#1a2236', '#2b2233'];
+const lots = [], leds = [], slideEls = [], lotMeshes = [];
+const STOPS = SLIDES.map((s, i) => {
+  const x = i * SPACING, y = 8 + ((i * 5) % 8), h = y + ri(12, 24);
+  const col = s.etapa === 'estrategia' ? '#FF7A18' : s.etapa === 'expressao' ? '#FF2D9B' : '#00E6DF';
+  lotMeshes.push(building(x, -BD / 2, BW, h, BD, tex(BW * 8, Math.round(h * 8), (g, w, hh) => paintFacade(g, w, hh,
+    { base: BASES[i % 4], lit: .34, signs: 7, far: false, panel: { x: 16, y: Math.round((h - y) * 8) - 36, w: 128, h: 72 }, rnd, ri, pick, NEON, WARM }))));
+  lots.push({ x, y, h, color: col });
+  box(17, 10, .5, 0x15172a, x, y, .1);                    // moldura do telão
+  box(17, .22, .3, col, x, y + 5.12, .3);                 // filetes neon
+  box(17, .22, .3, col, x, y - 5.12, .3);
+  const back = new THREE.Mesh(panelGeo, new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: BACK_FRAG, uniforms: { uTime, uColor: { value: new THREE.Color(col) } } }));
+  back.position.set(x, y, .38); scene.add(back);
+  const dom = buildSlide(s, i); slideEls.push(dom);
+  const o = new CSS3DObject(dom);
+  o.position.set(x, y, .4); o.scale.setScalar(0.01);      // 1600×900 px → 16×9 unidades
+  scene.add(o);
+  const led = new THREE.Mesh(panelGeo, new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: LED_FRAG, transparent: true, premultipliedAlpha: true, depthTest: false,
+    uniforms: { uTime, uCells, uMask, uOn: { value: 0 } } }));
+  led.position.set(x, y, .4); ledScene.add(led); leds.push(led.material.uniforms.uOn);
+  return { p: new THREE.Vector3(x, y, D + .4), q: new THREE.Quaternion() };   // +.4: o painel fica à frente da fachada
+});
+// última parada: panorâmica da rua inteira
+{
+  const c = new THREE.PerspectiveCamera();
+  c.position.set(span + 36, 21, 62); c.lookAt(span * .5, 15, -10);
+  STOPS.push({ p: c.position.clone(), q: c.quaternion.clone(), pano: true });
+}
+
+// módulos do mundo: cada um recebe o mesmo contexto
+const frameFns = [];
+const ctx = { THREE, scene, camera, rnd, ri, pick, tex, paintFacade, NEON, WARM, SPACING, BW, BD, span, lots, onFrame: fn => frameFns.push(fn) };
+const off = new URLSearchParams(location.search).get('sem') || '';   // diagnóstico: ?sem=rua, ?sem=atmosfera
+if (!off.includes('rua')) buildStreet(ctx);
+if (!off.includes('atmosfera')) buildAtmosphere(ctx);
+
+/* ── abertura: de cima da cidade até o primeiro telão ── */
+const INTRO = { cor: .9, zoom: 1.7, voo: 6 };          // segundos: acender o JUSTO, atravessar a fenda, descer
+const O_MIOLO = { w: .30, h: .40, dy: 0 };               // miolo do O em em (largura, altura, desvio vertical)
+const introEl = el('div'); introEl.id = 'intro';
+introEl.innerHTML = '<div class="hole"></div><div class="word"><span>JOGO</span><span class="justo">JUST<span class="o">O</span></span></div>';
+const holeEl = introEl.firstChild, wordEl = introEl.lastChild;
+const introPath = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(span * .5, 135, 60), new THREE.Vector3(span * .22, 80, 75),
+  new THREE.Vector3(8, 16, 42), new THREE.Vector3(0, lots[0].y, D + .4) ]);
+const lookA = new THREE.Vector3(span * .45, 0, -25), lookB = new THREE.Vector3(0, lots[0].y, .4), look = new THREE.Vector3();
+let intro = location.hash.length > 1 ? null : 'wait', introT0 = 0, hole = null;   // com #N na URL, pula a abertura
+function startIntro() {
+  const o = wordEl.querySelector('.o').getBoundingClientRect(), w = wordEl.getBoundingClientRect(), s = stage.getBoundingClientRect();
+  const em = parseFloat(getComputedStyle(wordEl).fontSize), cx = o.left + o.width / 2, cy = o.top + o.height / 2 + em * O_MIOLO.dy;
+  hole = { x: cx - s.left, y: cy - s.top, w: em * O_MIOLO.w, h: em * O_MIOLO.h };
+  wordEl.style.transformOrigin = `${cx - w.left}px ${cy - w.top}px`;
+  introEl.classList.add('lit'); intro = 'run'; introT0 = performance.now();
+}
+
+/* ── navegação ── */
+let idx = Math.min(STOPS.length - 1, Math.max(0, (parseInt(location.hash.replace(/\D/g, ''), 10) || 1) - 1));
+camera.position.copy(STOPS[idx].p); camera.quaternion.copy(STOPS[idx].q);
+let anim = null, flight = intro ? 0 : 1;
+// tela de abertura: é a parada antes do slide 1 e só sai com um avanço, como qualquer slide
+function showIntro() {
+  intro = 'wait'; flight = 0; anim = null;
+  introEl.classList.remove('lit'); wordEl.style.cssText = ''; holeEl.style.cssText = '';
+  stage.append(introEl); camera.position.copy(introPath.getPoint(0)); camera.lookAt(lookA);
+  history.replaceState(null, '', location.pathname + location.search);
+}
+if (intro) showIntro();
+const mark = () => { slideEls.forEach((e, i) => e.classList.toggle('on', i === idx)); stage.classList.toggle('pano', !!STOPS[idx].pano); };   // só o telão atual roda o letreiro
+mark();
+function go(n) {
+  if (intro) { if (intro === 'wait' && n > idx) startIntro(); return; }
+  if (n < 0 && idx === 0) { showIntro(); return; }   // seta esquerda no slide 1 volta à tela de abertura
+  n = Math.max(0, Math.min(STOPS.length - 1, n));
+  if (n === idx) return;
+  const hop = !STOPS[idx].pano && !STOPS[n].pano, to = STOPS[n];
+  anim = { p0: camera.position.clone(), q0: camera.quaternion.clone(), p1: to.p, q1: to.q, t0: performance.now(),
+           dur: hop ? HOP_MS : PANO_MS, arc: hop ? 7 : 0, yaw: hop ? -Math.sign(to.p.x - camera.position.x) * .22 : 0 };
+  idx = n; flight = 0; mark(); history.replaceState(null, '', '#' + (n + 1));
+}
+addEventListener('keydown', e => {
+  if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+  else if (e.key === 'l' || e.key === 'L') uMask.value = 1 - uMask.value;   // liga/desliga a grade de LED
+});
+// na panorâmica, clicar num telão ou no prédio dele leva direto àquele slide
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function lotAt(e) {
+  const dom = slideEls.indexOf(e.target.closest?.('.slide'));
+  if (dom >= 0) return dom;
+  const r = stage.getBoundingClientRect();
+  ray.setFromCamera(ndc.set((e.clientX - r.left) / r.width * 2 - 1, 1 - (e.clientY - r.top) / r.height * 2), camera);
+  const hit = ray.intersectObjects(lotMeshes)[0];
+  return hit ? lotMeshes.indexOf(hit.object) : -1;
+}
+stage.addEventListener('click', e => {
+  if (!STOPS[idx].pano || anim) return go(idx + 1);
+  const i = lotAt(e); if (i >= 0) go(i);
+});
+stage.addEventListener('mousemove', e => { stage.style.cursor = STOPS[idx].pano && !anim && lotAt(e) >= 0 ? 'pointer' : 'default'; });
+
+/* ── 16:9 com letterbox; mundo em baixa resolução, telões em resolução cheia ── */
+function resize() {
+  const W = Math.min(innerWidth, innerHeight * 16 / 9), H = W * 9 / 16;
+  stage.style.width = W + 'px'; stage.style.setProperty('--W', W + 'px'); stage.style.height = H + 'px';
+  const k = Math.max(2, Math.round(H / PIXEL_ROWS));
+  renderer.setSize(Math.ceil(W / k), Math.ceil(H / k), false);
+  css.setSize(W, H); ledRenderer.setSize(W, H, false);
+  const wp = W * FILL;                                   // largura do telão na tela, com a câmera parada
+  uCells.value = wp / Math.max(3, Math.round(wp / LED_COLS));   // cada LED com um número inteiro de pixels
+}
+addEventListener('resize', resize); resize();
+
+const Y = new THREE.Vector3(0, 1, 0), tq = new THREE.Quaternion();
+let last = performance.now();
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  uTime.value = now / 1000;
+  if (intro === 'run') {
+    const t = (now - introT0) / 1000 - INTRO.cor;       // primeiro só a cor do JUSTO
+    if (t > 0) {
+      const z = Math.min(1, t / INTRO.zoom), sc = Math.pow(70, z * z * (3 - 2 * z)), open = Math.min(1, z * 10);
+      if (z < 1) {
+        wordEl.style.transform = `scale(${sc})`; wordEl.style.opacity = 1 - Math.max(0, Math.min(1, (z - .4) / .22));
+        const hw = hole.w * sc * open, hh = hole.h * sc * open;
+        holeEl.style.cssText = `left:${hole.x - hw / 2}px;top:${hole.y - hh / 2}px;width:${hw}px;height:${hh}px`;
+      } else introEl.remove();
+      const f = Math.min(1, t / INTRO.voo), e = f < .5 ? 4 * f * f * f : 1 - Math.pow(-2 * f + 2, 3) / 2;
+      camera.position.copy(introPath.getPoint(e));
+      camera.lookAt(look.lerpVectors(lookA, lookB, Math.min(1, e / .8)));
+      flight = f; stage.classList.toggle('pano', f < .8);   // de cima, dez telões na tela: mesmo corte de brilho da panorâmica
+      if (f === 1) { intro = null; camera.position.copy(STOPS[0].p); camera.quaternion.copy(STOPS[0].q); }
+    }
+  }
+  if (anim) {
+    const k = Math.min(1, (now - anim.t0) / anim.dur), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, s = Math.sin(Math.PI * e);
+    camera.position.lerpVectors(anim.p0, anim.p1, e); camera.position.z += anim.arc * s;   // recua no meio do voo
+    camera.quaternion.slerpQuaternions(anim.q0, anim.q1, e).multiply(tq.setFromAxisAngle(Y, anim.yaw * s));   // olha para onde vai
+    flight = k;
+    if (k === 1) anim = null;
+  }
+  // telão atual acende na segunda metade do voo; os outros apagam; na panorâmica, todos acesos
+  const pano = STOPS[idx].pano;
+  leds.forEach((u, i) => { const on = pano || (i === idx && flight > .45); u.value = Math.max(0, Math.min(1, u.value + (on ? 1 : -1) * dt / .55)); });
+  for (const fn of frameFns) fn(dt, now);
+  renderer.render(scene, camera);
+  css.render(scene, camera);
+  ledRenderer.render(ledScene, camera);
+});
+</script>
+</body>
+</html>
