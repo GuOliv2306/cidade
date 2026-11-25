@@ -41,7 +41,15 @@ html, body { margin: 0; height: 100%; background: #05050b; overflow: hidden; }
 #intro .word { position: relative; font: 700 calc(var(--W) * .125) / 1 'Chakra Petch', sans-serif; text-transform: uppercase; white-space: nowrap; color: transparent; -webkit-text-stroke: max(1.5px, calc(var(--W) * .0013)) rgba(238,241,248,.55); will-change: transform, opacity; }
 #intro .justo { transition: color .9s, text-shadow .9s, -webkit-text-stroke-color .9s; }
 #intro.lit .justo { color: var(--white); -webkit-text-stroke-color: transparent; text-shadow: 0 0 calc(10px*var(--g)) var(--cyan), 0 0 calc(30px*var(--g)) color-mix(in srgb, var(--cyan) 45%, transparent); }
-#stage.pano .slide * { text-shadow: none !important; box-shadow: none !important; }   /* telões pequenos e ao longe: o brilho não aparece e custa fps */
+#stage.pano .slide * { text-shadow: none !important; box-shadow: none !important; }
+
+/* ── tela final: frase de fechamento no lado vazio da panorâmica; entra depois que a câmera pousa ── */
+#fim { z-index: 4; pointer-events: none; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box; padding-left: calc(var(--W) * .045);
+  background: linear-gradient(90deg, rgba(5,5,11,.9), rgba(5,5,11,.62) 30%, transparent 48%);
+  font-family: 'Chakra Petch', sans-serif; opacity: 0; transition: opacity .5s; }
+#stage.fim #fim { opacity: 1; transition: opacity 1.2s 1.6s; }
+#fim p { margin: 0; max-width: 11em; font-size: calc(var(--W) * .028); font-weight: 700; line-height: 1.08; text-transform: uppercase; color: var(--white); text-wrap: balance; }
+#fim .tagline { width: calc(var(--W) * .36); margin-top: calc(var(--W) * .022); font-size: calc(var(--W) * .0115); }   /* telões pequenos e ao longe: o brilho não aparece e custa fps */
 
 /* ── telão: canvas fixo 1600×900. O fundo animado vem do shader atrás; aqui só o véu escuro e o grid ── */
 .slide {
@@ -334,6 +342,8 @@ const SLIDES = [
     ] },
     nota: 'Selo na loja e painel institucional ainda são visão, não produto em operação.', proposta: true },
 ];
+// tela final (panorâmica da cidade): frase de fechamento; destaque sai em neon
+const FECHO = { titulo: 'Que qualquer responsável olhe para um jogo e', destaque: 'entenda o risco em um número,', fim: 'sem precisar entender de games.' };
 console.assert(SLIDES.length >= 1 && SLIDES.length <= 12, 'SLIDES deve ter de 1 a 12 itens');
 
 /* ── ajustes ── */
@@ -389,7 +399,7 @@ function buildSlide(s, i) {
   if (et) root.style.setProperty('--acc', et.cor);
   for (const c of ['tl', 'tr', 'bl', 'br']) root.append(el('div', 'corner ' + c));
   const frame = el('div', 'frame'), body = el('div', 'body'), bar = el('div', 'bar');
-  let ticker;
+  let ticker = null;
   if (s.capa) {
     const cover = el('div', 'cover'), left = el('div'), h1 = el('h1'), ag = el('div', 'agenda');
     h1.append(el('span', 'neon-o', 'JOGO'), el('span', 'neon-w', 'JUSTO'));
@@ -408,14 +418,16 @@ function buildSlide(s, i) {
     frame.append(head);
     body.append(...BODY[s.corpo.tipo](s.corpo));
     if (s.nota) { const n = el('p', 'nota'); if (s.proposta) n.append(el('span', 'tag', 'Proposta')); n.append(s.nota); body.append(n); }
-    ticker = [et.nome, s.passo, SLOGAN];
   }
+  if (i === SLIDES.length - 1) ticker = [SLIDES[0].equipe, SLOGAN];   // letreiro só na abertura e no fechamento
   const brand = el('span', 'brand'); brand.append(el('b', '', 'JOGO'), el('i', '', 'JUSTO')); bar.append(brand);
   frame.prepend(bar);
   const foot = el('div', 'foot'), tick = el('div', 'tick'), run = el('span', 'run');
-  const reps = 2 * Math.ceil(100 / ticker.join('').length);   // duas metades iguais, cada uma mais larga que a faixa
-  for (let r = 0; r < reps; r++) for (const t of ticker) run.append(t, el('em', '', '◆'));
-  tick.append(run);
+  if (ticker) {
+    const reps = 2 * Math.ceil(100 / ticker.join('').length);   // duas metades iguais, cada uma mais larga que a faixa
+    for (let r = 0; r < reps; r++) for (const t of ticker) run.append(t, el('em', '', '◆'));
+    tick.append(run);
+  }
   foot.append(tick, el('span', 'num', String(i + 1).padStart(2, '0') + '/' + String(SLIDES.length).padStart(2, '0')));
   frame.append(body, foot); root.append(frame);
   return root;
@@ -562,7 +574,10 @@ function showIntro() {
   history.replaceState(null, '', location.pathname + location.search);
 }
 if (intro) showIntro();
-const mark = () => { slideEls.forEach((e, i) => e.classList.toggle('on', i === idx)); stage.classList.toggle('pano', !!STOPS[idx].pano); };   // só o telão atual roda o letreiro
+const fimEl = el('div'); fimEl.id = 'fim';
+{ const p = el('p', '', FECHO.titulo + ' '); p.append(el('span', 'neon-c', FECHO.destaque), ' ' + FECHO.fim);
+  fimEl.append(p, el('div', 'tagline', SLOGAN.toUpperCase())); stage.append(fimEl); }
+const mark = () => { slideEls.forEach((e, i) => e.classList.toggle('on', i === idx)); stage.classList.toggle('pano', !!STOPS[idx].pano); stage.classList.toggle('fim', !!STOPS[idx].pano); };   // só o telão atual roda o letreiro; 'fim' separado de 'pano' porque a abertura também usa 'pano'
 mark();
 function go(n) {
   if (intro) { if (intro === 'wait' && n > idx) startIntro(); return; }
