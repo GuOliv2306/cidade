@@ -186,39 +186,31 @@ import buildStreet from './mundo/rua.js';
 
 /* ═══════════════════════════════════════════════════════════════
    CONTEÚDO DOS TELÕES — edite só aqui.
-   etapa: 'estrategia' (laranja) ou 'expressao' (magenta).
+   etapa: 'diagnostico' (ciano), 'estrategia' (laranja) ou 'expressao' (magenta).
    titulo + destaque formam o título (destaque sai em neon).
    corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'mood' | 'voz'.
    nota: linha pequena no fim; proposta: true põe a etiqueta PROPOSTA.
    ═══════════════════════════════════════════════════════════════ */
 const SLOGAN = 'Jogando pela sua segurança';
-const ETAPAS = { estrategia: { nome: 'Estratégia de marca', cor: 'var(--logo)' }, expressao: { nome: 'Expressão de marca', cor: 'var(--magenta)' } };
+const ETAPAS = { diagnostico: { nome: 'Diagnóstico', cor: 'var(--cyan)' }, estrategia: { nome: 'Estratégia de marca', cor: 'var(--logo)' }, expressao: { nome: 'Expressão de marca', cor: 'var(--magenta)' } };
 const SLIDES = [
   { capa: true,
-    subtitulo: 'Estratégia e expressão de marca', detalhe: 'FGV Quest · 2026',
+    subtitulo: 'Diagnóstico, estratégia e expressão de marca', detalhe: 'FGV Quest · 2026',
     equipe: 'Ofélia Mirella · André Essinger · Gustavo Oliveira · Erik Rolin · Manoella Alcantara' },
 
-  // ───────── ESTRATÉGIA DE MARCA ─────────
-  { etapa: 'estrategia', passo: 'O que é esta etapa',
-    titulo: 'Do diagnóstico', destaque: 'à decisão.',
-    subtitulo: 'Estratégia de marca é escolher o que o JogoJusto vai ser, para quem e ao lado de quem, antes de desenhar qualquer peça.',
-    corpo: { tipo: 'cols', itens: [
-      { n: 'Antes', k: 'Diagnóstico', v: 'O que a marca é por dentro e como foi lida por fora.' },
-      { n: 'Agora', k: 'Estratégia', v: 'Território, posicionamento e promessa: as escolhas.', hot: true },
-      { n: 'Depois', k: 'Expressão', v: 'Como essas escolhas aparecem em imagem e em texto.' },
-    ] } },
-
-  { etapa: 'estrategia', passo: 'Para que serve',
-    titulo: 'Uma régua para', destaque: 'toda decisão seguinte.',
-    subtitulo: 'Sem estratégia, cada peça decide sozinha o que a marca é.',
+  // ───────── DIAGNÓSTICO ─────────
+  { etapa: 'diagnostico', passo: 'O problema e a lacuna de mercado',
+    titulo: 'A idade não mostra', destaque: 'o que o jogo cobra.',
+    subtitulo: '55% das crianças e adolescentes jogam online todo dia. Só 31% dos responsáveis usam alerta de compras.',
     corpo: { tipo: 'rows', itens: [
-      { k: 'Foco', v: 'Dizer não ao que foge do recorte: mecânicas predatórias, não faixa etária.' },
-      { k: 'Coerência', v: 'Índice, site e Instagram falando como a mesma marca.' },
-      { k: 'Diferença', v: 'Mostrar o que só o JogoJusto entrega: quais mecânicas existem e quanto pesam.' },
-      { k: 'Critério', v: 'Julgar cor, nome e texto pelo que a marca prometeu, não por gosto.' },
-    ] } },
+      { k: 'Classificação', v: 'ClassInd e PEGI dizem a idade. Não mostram quais mecânicas pesam, nem quanto.' },
+      { k: 'Controle parental', v: 'Bloqueia e limita o tempo. Não explica o risco.' },
+      { k: 'Avaliações', v: 'DarkPattern.games: nota de usuários, só em inglês, só para celular.' },
+      { k: 'JogoJusto', v: 'Nota pública de 0 a 100, em português, com metodologia aberta.' },
+    ] },
+    nota: 'TIC Kids Online Brasil 2025 (Cetic.br). Nenhum concorrente direto identificado no Brasil.' },
 
-  { etapa: 'estrategia', passo: 'O que vimos do diagnóstico',
+  { etapa: 'diagnostico', passo: 'O que ouvimos do público',
     titulo: 'A primeira escuta:', destaque: 'entender vem antes de confiar.',
     corpo: { tipo: 'stats', itens: [
       { n: '63%', l: 'dizem que a FGV aumenta a confiança' },
@@ -227,6 +219,47 @@ const SLIDES = [
       { n: '19%', l: 'veem a marca ligada ao jogador', hot: true },
     ], fecho: 'Ninguém confia no que', fechoHl: 'não entende.' },
     nota: 'n = 43 · grupos pequenos de jogadores e familiares · amostra não representativa' },
+
+  // ───────── ESTRATÉGIA DE MARCA ─────────
+  { etapa: 'estrategia', passo: 'Propósito e posicionamento',
+    titulo: 'Informar e proteger', destaque: 'cada jogador.',
+    subtitulo: 'Jogo foi feito para divertir. Quando a mecânica explora quem joga, alguém precisa mostrar.',
+    corpo: { tipo: 'rows', itens: [
+      { k: 'Para quem', v: 'Pais que decidem e jogadores que convivem com o risco.' },
+      { k: 'Necessidade', v: 'Saber se um jogo é seguro sem precisar entender de games.' },
+      { k: 'O que somos', v: 'Um índice de 0 a 100, com o selo do tatu.' },
+      { k: 'Diferente de', v: 'Classificação indicativa: ela diz a idade, nós medimos a mecânica.' },
+      { k: 'Resultado', v: 'Olhar um jogo e entender o risco em um número.' },
+    ] },
+    nota: 'Se você joga justo, joga consciente.' },
+
+  { etapa: 'estrategia', passo: 'Público alvo',
+    titulo: 'Quem decide, quem joga,', destaque: 'quem dá escala.',
+    corpo: { tipo: 'cols', itens: [
+      { n: '01', tag: 'Prioridade', k: 'Responsáveis', hot: true,
+        v: 'Pais e mães que decidem se a criança joga.',
+        pq: 'Decidem, e são quem menos enxerga a mecânica.' },
+      { n: '02', k: 'Jogadores',
+        v: 'Jovens e adultos que vivem as mecânicas.',
+        pq: 'Dão a voz de comunidade: de gamers para gamers.' },
+      { n: '03', k: 'Instituições',
+        v: 'Escolas, Prefeitura do Rio, órgãos do ECA Digital e imprensa.',
+        pq: 'Dão escala e credibilidade.' },
+      { n: '04', k: 'Estúdios',
+        v: 'Desenvolvedoras e lojas de aplicativos.',
+        pq: 'Sem elas, o selo não avança.' },
+    ] },
+    nota: 'Hierarquia da equipe a partir das fichas de público e do diagnóstico.' },
+
+  { etapa: 'estrategia', passo: 'Público alvo · dores e desejos',
+    titulo: 'O que tira o sono', destaque: 'de cada público.',
+    corpo: { tipo: 'rows', itens: [
+      { k: 'Responsáveis', v: 'Não entendem as cobranças e se sentem culpados. Querem deixar jogar sem medo.' },
+      { k: 'Jogadores', v: 'Sabem farejar o jogo predatório, mas depois de cair. Querem saber antes de baixar.' },
+      { k: 'Escolas', v: 'Orientam famílias sem dado confiável. Querem uma fonte que possam defender.' },
+      { k: 'Poder público', v: 'Tem a lei, mas não tem régua. Quer evidência para educar e fiscalizar.' },
+    ] },
+    nota: 'Dores das personas Helena (38), Rafael (22) e Cláudia (45): hipóteses que o campo vai validar.', proposta: true },
 
   { etapa: 'estrategia', passo: 'Escolhas e justificativas',
     titulo: 'Três territórios.', destaque: 'Tradução primeiro.',
@@ -243,29 +276,30 @@ const SLIDES = [
         pq: 'Nota e faixa etária ainda podem se confundir.' },
     ] } },
 
-  // ───────── EXPRESSÃO DE MARCA ─────────
-  { etapa: 'expressao', passo: 'O que é a etapa',
-    titulo: 'A estratégia', destaque: 'ganha corpo.',
-    subtitulo: 'Expressão de marca é tudo o que o público vê e lê do JogoJusto.',
-    corpo: { tipo: 'cols', itens: [
-      { n: 'Visual', k: 'O que se vê', v: 'Logo, cor, tipografia e a nota do índice.' },
-      { n: 'Verbal', k: 'O que se lê', v: 'Nome, slogan e tom de voz.' },
-      { n: 'Em uso', k: 'Onde aparece', v: 'No índice, no site e no conteúdo do Instagram.' },
-    ] } },
+  { etapa: 'estrategia', passo: 'Valores e razões para acreditar',
+    titulo: 'Três valores,', destaque: 'provados na prática.',
+    corpo: { tipo: 'rows', itens: [
+      { k: 'Segurança', v: 'Mostrar os riscos que ninguém vê: seis mecânicas medidas em todo jogo.' },
+      { k: 'Confiança', v: 'Traduzir com legitimidade: metodologia aberta, avaliação dupla e cega.' },
+      { k: 'Comunidade', v: 'De gamers para gamers: quem avalia joga e fala a língua de quem joga.' },
+      { k: 'Por que crer', v: 'Parceria com a Prefeitura do Rio · lastro da FGV Quest · algoritmo transparente' },
+    ] },
+    nota: 'Evidência, transparência e imparcialidade, do manual, viram as provas da confiança.' },
 
-  { etapa: 'expressao', passo: 'Análise da identidade visual atual',
-    titulo: 'Identidade coesa,', destaque: 'com um risco de leitura.',
+  // ───────── EXPRESSÃO DE MARCA ─────────
+  { etapa: 'expressao', passo: 'Identidade visual',
+    titulo: 'Um tatu que se blinda,', destaque: 'uma nota que se lê de longe.',
     corpo: { tipo: 'duo', lados: [
-      { k: 'O que sustenta', itens: [
-        'Sistema único: logo JOGO + JUSTO, neon sobre escuro, Chakra Petch.',
-        'DSEG7 e as cores de estado ficam reservadas à nota do índice.',
-        'Naming e paleta têm racional documentado.' ] },
-      { k: 'O que arrisca', itens: [
-        'A estética neon puxa para o jogador; o usuário prioritário são pais e responsáveis.',
-        'Só 19% ligaram a marca ao jogador e 30% a viram como imparcial.',
-        'Texto pequeno sobre fundo escuro pesa contra a Tradução.' ] },
+      { k: 'O que a marca mostra', itens: [
+        'Escudo e tatu enrolado: proteção e selo.',
+        'JOGO em laranja, JUSTO em branco, borda ciano.',
+        'Neon sobre escuro e Chakra Petch: a cultura gamer.' ] },
+      { k: 'Como a nota aparece', itens: [
+        'Tatu do bem de 80 a 100, em atenção de 50 a 79, do mal até 49.',
+        'Verde, amarelo e ferrugem só na nota.',
+        'DSEG7, a fonte de placar, só nos números.' ] },
     ], swatches: true },
-    nota: 'Leitura da equipe sobre a identidade atual. Percentuais da escuta n = 43.' },
+    nota: 'Ajuste: texto maior e mais contraste para quem não joga ler sem esforço.', proposta: true },
 
   { etapa: 'expressao', passo: 'Moodboard do que pode ser',
     titulo: 'Moodboard:', destaque: 'o que pode ser.',
@@ -279,24 +313,26 @@ const SLIDES = [
     ] },
     nota: 'Direções em estudo, não identidade aprovada.', proposta: true },
 
-  { etapa: 'expressao', passo: 'Tom de voz · construções e entregas',
-    titulo: 'Rigor de instituição,', destaque: 'energia de jogador.',
+  { etapa: 'expressao', passo: 'Tom de voz · faz e não faz',
+    titulo: 'Protetor, jovem', destaque: 'e informativo.',
+    subtitulo: 'Sempre respeitoso, mais prático que eufórico, sério sem perder o bom humor.',
     corpo: { tipo: 'voz', itens: [
-      { k: 'Termo do jogo, explicado na hora', de: '“Este jogo utiliza mecânicas de monetização aleatória.”', para: '“Aqui tem loot box: você paga sem saber o que vem.”' },
-      { k: 'Mede, não manda', de: '“Jogo perigoso. Não deixe seu filho jogar.”', para: '“Nota 68, atenção. Veja o que pesou na conta.”' },
-      { k: 'Prova, não elogio', de: '“O índice mais confiável do mercado.”', para: '“Metodologia aberta, com lastro da FGV Quest.”' },
+      { k: 'Protetor: mede, não manda', de: '“Jogo perigoso. Não deixe seu filho jogar.”', para: '“Nota 68, atenção. Veja o que pesou na conta.”' },
+      { k: 'Jovem: termo explicado', de: '“Este jogo utiliza mecânicas de monetização aleatória.”', para: '“Aqui tem loot box: você paga sem saber o que vem.”' },
+      { k: 'Informativo: prova, não elogio', de: '“O índice mais confiável do mercado.”', para: '“Seis mecânicas, pesos públicos, conta aberta.”' },
     ] },
     nota: 'Exemplos de redação, não peças publicadas. A nota 68 é ilustrativa.', proposta: true },
 
-  { etapa: 'expressao', passo: 'Escolhas e justificativas',
-    titulo: 'O que fica,', destaque: 'o que ajusta, o que entra.',
+  { etapa: 'expressao', passo: 'Expressão verbal e pontos de contato',
+    titulo: 'Como a marca assina', destaque: 'e onde aparece.',
     corpo: { tipo: 'rows', itens: [
-      { k: 'Fica', v: 'Logo, paleta neon e DSEG7 só na nota: o sistema já é coeso.' },
-      { k: 'Ajusta', v: 'Texto maior e mais contraste, para quem não joga ler sem esforço.' },
-      { k: 'Entra', v: 'Tom de voz da Tradução: termo do jogo explicado, número antes do adjetivo.' },
-      { k: 'Entra', v: 'Nota sempre ao lado da faixa etária, nunca no lugar dela.' },
+      { k: 'Assinatura', v: 'Jogando pela sua segurança.' },
+      { k: 'Lemas', v: 'Avaliando de forma transparente. · Checa se o tatu tá do bem.' },
+      { k: 'Palavras', v: 'jogo limpo · mecânica · nota · loot box · risco · transparente · tatu' },
+      { k: 'Hashtags', v: '#JogoJusto #ÍndiceJJ #JogaConsciente #ECADigital #LeiFelca' },
+      { k: 'Onde aparece', v: 'Instagram, portal com a metodologia, selo na loja de apps, escolas.' },
     ] },
-    nota: 'Escolhas da equipe para a próxima etapa.', proposta: true },
+    nota: 'Selo na loja e painel institucional ainda são visão, não produto em operação.', proposta: true },
 ];
 console.assert(SLIDES.length >= 1 && SLIDES.length <= 12, 'SLIDES deve ter de 1 a 12 itens');
 
