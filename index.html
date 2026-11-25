@@ -180,6 +180,13 @@ html, body { margin: 0; height: 100%; background: #05050b; overflow: hidden; }
 .voz .de { font-size: 27px; line-height: 1.25; color: var(--muted); }
 .voz .arr { color: var(--acc); font-size: 34px; font-weight: 700; justify-content: center; }
 .voz .para { font-size: 31px; font-weight: 600; line-height: 1.22; color: var(--white); }
+
+/* brand canvas: a plataforma inteira numa grade 4×3, com os mesmos filetes das colunas */
+.canvas { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 30px; row-gap: 24px; }
+.canvas > div { border-top: 2px solid color-mix(in srgb, var(--acc) 45%, transparent); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.canvas b { font-size: 18px; letter-spacing: .24em; text-transform: uppercase; color: var(--acc); }
+.canvas p { font-size: 29px; font-weight: 500; line-height: 1.22; color: var(--white); }
+.canvas > .hot { border-top: 3px solid var(--acc); background: color-mix(in srgb, var(--acc) 13%, transparent); padding: 12px 16px 14px; }
 </style>
 </head>
 <body>
@@ -196,7 +203,7 @@ import buildStreet from './mundo/rua.js';
    CONTEÚDO DOS TELÕES — edite só aqui.
    etapa: 'diagnostico' (ciano), 'estrategia' (laranja) ou 'expressao' (magenta).
    titulo + destaque formam o título (destaque sai em neon).
-   corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'mood' | 'voz'.
+   corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'mood' | 'voz' | 'canvas'.
    nota: linha pequena no fim; proposta: true põe a etiqueta PROPOSTA.
    ═══════════════════════════════════════════════════════════════ */
 const SLOGAN = 'Jogando pela sua segurança';
@@ -341,10 +348,28 @@ const SLIDES = [
       { k: 'Onde aparece', v: 'Instagram, portal com a metodologia, selo na loja de apps, escolas.' },
     ] },
     nota: 'Selo na loja e painel institucional ainda são visão, não produto em operação.', proposta: true },
+
+  { etapa: 'expressao', passo: 'Brand canvas · síntese da marca',
+    titulo: 'Brand canvas:', destaque: 'a marca em uma tela.',
+    corpo: { tipo: 'canvas', itens: [
+      { k: 'Propósito', v: 'Informar e proteger cada jogador.', hot: true },
+      { k: 'Missão', v: 'Dar evidência clara a jogadores e responsáveis.' },
+      { k: 'Visão', v: 'Ser a referência brasileira em proteção do jogador.' },
+      { k: 'Valores', v: 'Segurança, confiança e comunidade.' },
+      { k: 'Público', v: 'Responsáveis primeiro. Jogadores, instituições e estúdios.' },
+      { k: 'Necessidade', v: 'Saber se um jogo é seguro sem entender de games.' },
+      { k: 'Posicionamento', v: 'A classificação diz a idade. Nós medimos a mecânica.' },
+      { k: 'Território', v: 'Tradução: o jogo na língua de pais e escolas.' },
+      { k: 'Personalidade', v: 'Rigor de instituição, energia de jogador.' },
+      { k: 'Tom de voz', v: 'Protetor, jovem e informativo.' },
+      { k: 'Visual', v: 'Tatu que se blinda, neon sobre escuro.' },
+      { k: 'Assinatura', v: 'Jogando pela sua segurança.' },
+    ] },
+    nota: 'Por que crer: parceria com a Prefeitura do Rio · lastro da FGV Quest · metodologia aberta' },
 ];
 // tela final (panorâmica da cidade): frase de fechamento; destaque sai em neon
 const FECHO = { titulo: 'Que qualquer responsável olhe para um jogo e', destaque: 'entenda o risco em um número,', fim: 'sem precisar entender de games.' };
-console.assert(SLIDES.length >= 1 && SLIDES.length <= 12, 'SLIDES deve ter de 1 a 12 itens');
+console.assert(SLIDES.length >= 1 && SLIDES.length <= 13, 'SLIDES deve ter de 1 a 13 itens');
 
 /* ── ajustes ── */
 const FOV = 40, FILL = 0.85;          // painel ocupa 85% da tela quando a câmera para
@@ -392,6 +417,9 @@ const BODY = {
   voz(c) { const g = el('div', 'voz');
     g.append(el('div', 'th', 'Princípio'), el('div', 'th', 'Em vez de'), el('div', 'th'), el('div', 'th to', 'Dizemos'));
     for (const it of c.itens) g.append(el('div', 'k', it.k), el('div', 'de', it.de), el('div', 'arr', '→'), el('div', 'para', it.para));
+    return [g]; },
+  canvas(c) { const g = el('div', 'canvas');
+    for (const it of c.itens) { const d = el('div', it.hot ? 'hot' : ''); d.append(el('b', '', it.k), el('p', '', it.v)); g.append(d); }
     return [g]; },
 };
 function buildSlide(s, i) {
