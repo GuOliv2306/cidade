@@ -156,12 +156,15 @@ html, body { margin: 0; height: 100%; background: #05050b; overflow: hidden; }
 
 /* imagem pronta (moodboard, canvas): ocupa o miolo inteiro, sem cortar nem distorcer */
 .body > .img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
-.slide.lado .frame { display: grid; grid-template-columns: 1fr 796px; grid-template-rows: auto 1fr auto; column-gap: 56px; }   /* 796 = miolo de 706px de altura × 1600/1420 do moodboard */
-.slide.lado .bar, .slide.lado .foot { grid-column: 1 / -1; }
-.slide.lado .head { display: flex; flex-direction: column; gap: 26px; }
+.slide.cheio .frame { padding-top: 20px; gap: 16px; }
+/* moodboard: imagem na altura inteira do telão, encostada à direita; título e nota na coluna que sobra */
+.slide.lado .frame { padding-right: 1066px; }   /* 1010 da imagem + 56 de respiro */
+.slide.lado .body { position: absolute; top: 0; right: 0; bottom: 0; width: 1010px; }   /* 1010 = 896 de altura × 1600/1420 */
+.slide.lado .bar { flex-wrap: wrap; row-gap: 14px; }
+.slide.lado .bar .brand { display: none; }   /* a marca já está grande na imagem */
+.slide.lado .head { flex: 1; display: flex; flex-direction: column; gap: 26px; }
 .slide.lado .head h2 { font-size: 64px; }
 .slide.lado .nota { margin-top: auto; flex-wrap: wrap; }
-.slide.lado .body > .img { object-position: right center; }
 
 /* tom de voz */
 .voz { display: grid; grid-template-columns: 250px 1fr 44px 1.08fr; column-gap: 24px; align-items: center; }
@@ -190,7 +193,7 @@ import buildStreet from './mundo/rua.js';
    etapa: 'diagnostico' (ciano), 'estrategia' (laranja) ou 'expressao' (magenta).
    titulo + destaque formam o título (destaque sai em neon).
    corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'voz' | 'img' (src, alt; lado: true põe a imagem à direita).
-   sem titulo, o telão fica sem cabeçalho (para imagem que já traz o próprio).
+   sem titulo, o telão fica sem cabeçalho nem faixa de cima (para imagem que já traz o próprio).
    nota: linha pequena no fim; proposta: true põe a etiqueta PROPOSTA.
    ═══════════════════════════════════════════════════════════════ */
 const SLOGAN = 'Jogando pela sua segurança';
@@ -342,6 +345,7 @@ console.assert(SLIDES.length >= 1 && SLIDES.length <= 13, 'SLIDES deve ter de 1 
 /* ── ajustes ── */
 const FOV = 40, FILL = 0.85;          // painel ocupa 85% da tela quando a câmera para
 const FILL_IN = 0.885;                // do 2º telão da etapa em diante: só um pouco mais perto (se o zoom chamar atenção, está grande demais)
+const FILL_IMG = 0.96;                // telão de imagem (moodboard, canvas): quase a tela toda, para ler no projetor
 const SPACING = 24, BW = 20, BD = 12; // distância entre prédios, largura e profundidade
 const PIXEL_ROWS = 270;               // altura aproximada do render do mundo antes do upscale
 const LED_COLS = 270;                 // LEDs por linha do telão (aproximado; ajustado para dar pixels inteiros)
@@ -410,7 +414,7 @@ function buildSlide(s, i) {
   }
   if (i === SLIDES.length - 1) ticker = [SLIDES[0].equipe, SLOGAN];   // letreiro só na abertura e no fechamento
   const brand = el('span', 'brand'); brand.append(el('b', '', 'JOGO'), el('i', '', 'JUSTO')); bar.append(brand);
-  frame.prepend(bar);
+  if (s.capa || s.titulo) frame.prepend(bar); else root.classList.add('cheio');   // imagem que já traz o próprio cabeçalho
   const foot = el('div', 'foot'), tick = el('div', 'tick'), run = el('span', 'run');
   if (ticker) {
     const reps = 2 * Math.ceil(100 / ticker.join('').length);   // duas metades iguais, cada uma mais larga que a faixa
@@ -489,15 +493,17 @@ void main(){
   light += smoothstep(.025, 0., abs(y - uOn)) * step(.001, uOn) * step(uOn, .999) * .8 * uSweep; // linha de acendimento
   gl_FragColor = vec4(vec3(light), clamp(dark + light, 0., 1.));
 }`;
-const uTime = { value: 0 }, uCells = { value: LED_COLS }, uCellsIn = { value: LED_COLS }, uMask = { value: 1 }, uSweep = { value: 1 };
+const uTime = { value: 0 }, uMask = { value: 1 }, uSweep = { value: 1 };
 const panelGeo = new THREE.PlaneGeometry(16, 9);
 
 const span = SPACING * (SLIDES.length - 1);
 
 // prédios dos slides + pose da câmera em cada um
 const dist = fill => (9 / fill) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
-const D = dist(FILL), D_IN = dist(FILL_IN);
+const D = dist(FILL);
 const inner = i => i > 0 && SLIDES[i - 1].etapa === SLIDES[i].etapa;   // não é o primeiro telão da etapa
+const fillOf = i => SLIDES[i].corpo?.tipo === 'img' ? FILL_IMG : inner(i) ? FILL_IN : FILL;
+const uCellsBy = {}, cellsU = f => uCellsBy[f] ??= { value: LED_COLS };   // uma grade de LED por enquadramento, para cada LED cair em pixels inteiros
 const BASES = ['#1d1a34', '#262138', '#1a2236', '#2b2233'];
 const lots = [], leds = [], slideEls = [], lotMeshes = [];
 const STOPS = SLIDES.map((s, i) => {
@@ -516,9 +522,9 @@ const STOPS = SLIDES.map((s, i) => {
   o.position.set(x, y, .4); o.scale.setScalar(0.01);      // 1600×900 px → 16×9 unidades
   scene.add(o);
   const led = new THREE.Mesh(panelGeo, new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: LED_FRAG, transparent: true, premultipliedAlpha: true, depthTest: false,
-    uniforms: { uTime, uCells: inner(i) ? uCellsIn : uCells, uMask, uSweep, uOn: { value: 0 } } }));
+    uniforms: { uTime, uCells: cellsU(fillOf(i)), uMask, uSweep, uOn: { value: 0 } } }));
   led.position.set(x, y, .4); ledScene.add(led); leds.push(led.material.uniforms.uOn);
-  return { p: new THREE.Vector3(x, y, (inner(i) ? D_IN : D) + .4), q: new THREE.Quaternion() };   // +.4: o painel fica à frente da fachada
+  return { p: new THREE.Vector3(x, y, dist(fillOf(i)) + .4), q: new THREE.Quaternion() };   // +.4: o painel fica à frente da fachada
 });
 // última parada: panorâmica da rua inteira
 {
@@ -611,7 +617,7 @@ function resize() {
   renderer.setSize(Math.ceil(W / k), Math.ceil(H / k), false);
   css.setSize(W, H); ledRenderer.setSize(W, H, false);
   // largura do telão na tela, com a câmera parada; cada LED com um número inteiro de pixels
-  for (const [u, fill] of [[uCells, FILL], [uCellsIn, FILL_IN]]) { const wp = W * fill; u.value = wp / Math.max(3, Math.round(wp / LED_COLS)); }
+  for (const [fill, u] of Object.entries(uCellsBy)) { const wp = W * fill; u.value = wp / Math.max(3, Math.round(wp / LED_COLS)); }
 }
 addEventListener('resize', resize); resize();
 
