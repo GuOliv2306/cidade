@@ -154,22 +154,14 @@ html, body { margin: 0; height: 100%; background: #05050b; overflow: hidden; }
 .swatches i { width: 70px; height: 30px; }
 .swatches span { margin: 0 18px 0 8px; }
 
-/* moodboard: mosaico de telas */
-.mood { display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 232px; gap: 18px; }
-.tile { display: flex; flex-direction: column; border: 1px solid var(--line); background: rgba(8,10,22,.55); overflow: hidden; }
-.tile .vis { flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; gap: 20px; overflow: hidden; }
-.tile .cap { padding: 9px 16px 11px; border-top: 1px solid var(--line); font-size: 23px; line-height: 1.2; color: var(--white); }
-.tile .cap b { display: block; font-size: 17px; letter-spacing: .24em; text-transform: uppercase; color: var(--acc); margin-bottom: 2px; }
-.vis.led { background: linear-gradient(100deg, transparent 10%, rgba(4,18,26,.78) 45%, transparent 80%), radial-gradient(circle, var(--cyan) 36%, transparent 40%) 0 0 / 12px 12px, #04121a; }
-.vis.paleta { gap: 0; align-items: stretch; } .vis.paleta i { flex: 1; }
-.vis.tipo .aa { font-size: 96px; font-weight: 700; color: var(--white); line-height: 1; }
-.vis.tipo .digits { font-size: 46px; }
-.vis.refs { flex-direction: column; gap: 4px; font-size: 27px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--white); }
-.vis.refs span:nth-child(2) { color: var(--cyan); } .vis.refs span:nth-child(3) { color: var(--magenta); }
-.vis.pixel { align-items: flex-end; gap: 6px; padding: 0 18px; background: linear-gradient(#170a33, #3a1450 60%, #0f5e66); }
-.vis.pixel i { flex: 1; background: repeating-linear-gradient(0deg, transparent 0 6px, #0a0a18 6px 12px), repeating-linear-gradient(90deg, #ffb14a 0 6px, #0a0a18 6px 12px); border-top: 4px solid var(--cyan); }
-.vis.pixel i:nth-child(odd) { background: repeating-linear-gradient(0deg, transparent 0 6px, #0a0a18 6px 12px), repeating-linear-gradient(90deg, #39d6d0 0 6px, #0a0a18 6px 18px); border-top-color: var(--magenta); }
-.vis.rotulo span { background: var(--white); color: #05050b; font-size: 32px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: center; line-height: 1.05; padding: 14px 26px; border: 6px solid #05050b; outline: 3px solid var(--white); }
+/* imagem pronta (moodboard, canvas): ocupa o miolo inteiro, sem cortar nem distorcer */
+.body > .img { flex: 1; min-height: 0; width: 100%; object-fit: contain; }
+.slide.lado .frame { display: grid; grid-template-columns: 1fr 796px; grid-template-rows: auto 1fr auto; column-gap: 56px; }   /* 796 = miolo de 706px de altura × 1600/1420 do moodboard */
+.slide.lado .bar, .slide.lado .foot { grid-column: 1 / -1; }
+.slide.lado .head { display: flex; flex-direction: column; gap: 26px; }
+.slide.lado .head h2 { font-size: 64px; }
+.slide.lado .nota { margin-top: auto; flex-wrap: wrap; }
+.slide.lado .body > .img { object-position: right center; }
 
 /* tom de voz */
 .voz { display: grid; grid-template-columns: 250px 1fr 44px 1.08fr; column-gap: 24px; align-items: center; }
@@ -181,12 +173,6 @@ html, body { margin: 0; height: 100%; background: #05050b; overflow: hidden; }
 .voz .arr { color: var(--acc); font-size: 34px; font-weight: 700; justify-content: center; }
 .voz .para { font-size: 31px; font-weight: 600; line-height: 1.22; color: var(--white); }
 
-/* brand canvas: a plataforma inteira numa grade 4×3, com os mesmos filetes das colunas */
-.canvas { display: grid; grid-template-columns: repeat(4, 1fr); column-gap: 30px; row-gap: 24px; }
-.canvas > div { border-top: 2px solid color-mix(in srgb, var(--acc) 45%, transparent); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; }
-.canvas b { font-size: 18px; letter-spacing: .24em; text-transform: uppercase; color: var(--acc); }
-.canvas p { font-size: 29px; font-weight: 500; line-height: 1.22; color: var(--white); }
-.canvas > .hot { border-top: 3px solid var(--acc); background: color-mix(in srgb, var(--acc) 13%, transparent); padding: 12px 16px 14px; }
 </style>
 </head>
 <body>
@@ -203,7 +189,8 @@ import buildStreet from './mundo/rua.js';
    CONTEÚDO DOS TELÕES — edite só aqui.
    etapa: 'diagnostico' (ciano), 'estrategia' (laranja) ou 'expressao' (magenta).
    titulo + destaque formam o título (destaque sai em neon).
-   corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'mood' | 'voz' | 'canvas'.
+   corpo.tipo: 'cols' | 'rows' | 'stats' | 'duo' | 'voz' | 'img' (src, alt; lado: true põe a imagem à direita).
+   sem titulo, o telão fica sem cabeçalho (para imagem que já traz o próprio).
    nota: linha pequena no fim; proposta: true põe a etiqueta PROPOSTA.
    ═══════════════════════════════════════════════════════════════ */
 const SLOGAN = 'Jogando pela sua segurança';
@@ -318,14 +305,9 @@ const SLIDES = [
 
   { etapa: 'expressao', passo: 'Moodboard do que pode ser',
     titulo: 'Moodboard:', destaque: 'o que pode ser.',
-    corpo: { tipo: 'mood', tiles: [
-      { vis: 'led', k: 'Telão de LED', v: 'Nota grande, lida de longe.' },
-      { vis: 'paleta', k: 'Neon sobre escuro', v: 'Cor como acento, não como fundo de leitura.' },
-      { vis: 'tipo', k: 'Tipografia', v: 'Chakra Petch no texto, DSEG7 só na nota.' },
-      { vis: 'refs', k: 'Atmosfera', v: 'Referências do manual de marca.' },
-      { vis: 'pixel', k: 'Cidade em pixel', v: 'O universo do jogo como cenário.' },
-      { vis: 'rotulo', k: 'Clareza de rótulo', v: 'Selos de alimentos como referência de leitura.' },
-    ] },
+    subtitulo: 'Dez referências do mundo e o que cada uma empresta para a marca.',
+    corpo: { tipo: 'img', lado: true, src: 'images/moodboard.jpeg',
+      alt: 'Moodboard Energia de jogador, leitura de rótulo: Blade Runner 2049, Cyberpunk 2077, Replaced, relógio de sete segmentos, placar de fliperama, selo Alto em açúcar, Nutri-Score, selo Procel, classificação ESRB e o tatu, fechando com a marca JogoJusto.' },
     nota: 'Direções em estudo, não identidade aprovada.', proposta: true },
 
   { etapa: 'expressao', passo: 'Tom de voz · faz e não faz',
@@ -349,23 +331,9 @@ const SLIDES = [
     ] },
     nota: 'Selo na loja e painel institucional ainda são visão, não produto em operação.', proposta: true },
 
-  { etapa: 'expressao', passo: 'Brand canvas · síntese da marca',
-    titulo: 'Brand canvas:', destaque: 'a marca em uma tela.',
-    corpo: { tipo: 'canvas', itens: [
-      { k: 'Propósito', v: 'Informar e proteger cada jogador.', hot: true },
-      { k: 'Missão', v: 'Dar evidência clara a jogadores e responsáveis.' },
-      { k: 'Visão', v: 'Ser a referência brasileira em proteção do jogador.' },
-      { k: 'Valores', v: 'Segurança, confiança e comunidade.' },
-      { k: 'Público', v: 'Responsáveis primeiro. Jogadores, instituições e estúdios.' },
-      { k: 'Necessidade', v: 'Saber se um jogo é seguro sem entender de games.' },
-      { k: 'Posicionamento', v: 'A classificação diz a idade. Nós medimos a mecânica.' },
-      { k: 'Território', v: 'Tradução: o jogo na língua de pais e escolas.' },
-      { k: 'Personalidade', v: 'Rigor de instituição, energia de jogador.' },
-      { k: 'Tom de voz', v: 'Protetor, jovem e informativo.' },
-      { k: 'Visual', v: 'Tatu que se blinda, neon sobre escuro.' },
-      { k: 'Assinatura', v: 'Jogando pela sua segurança.' },
-    ] },
-    nota: 'Por que crer: parceria com a Prefeitura do Rio · lastro da FGV Quest · metodologia aberta' },
+  { etapa: 'expressao', passo: 'Brand canvas · síntese da marca',   // sem título: a imagem já traz o cabeçalho
+    corpo: { tipo: 'img', src: 'images/canvas.jpeg',
+      alt: 'Brand canvas JogoJusto: por que existimos, missão e visão, valores, proposta de valor (o risco em um número), personalidade e tom, onde nos encontram, para quem, por que confiar e o que o público sente.' } },
 ];
 // tela final (panorâmica da cidade): frase de fechamento; destaque sai em neon
 const FECHO = { titulo: 'Que qualquer responsável olhe para um jogo e', destaque: 'entenda o risco em um número,', fim: 'sem precisar entender de games.' };
@@ -386,13 +354,6 @@ console.assert(glide(0) === 0 && Math.abs(glide(1) - 1) < 1e-12 && glide(.5) > .
 
 /* ── telões em HTML (texto nítido, fora do render pixelado) ── */
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-const MOOD_VIS = {
-  led: '', paleta: '<i style="background:#05050b"></i><i style="background:#FF7A18"></i><i style="background:#00E6DF"></i><i style="background:#FF2D9B"></i><i style="background:#EEF1F8"></i>',
-  tipo: '<span class="aa">Aa</span><span class="digits neon-c">0-100</span>',
-  refs: '<span>Blade Runner 2049</span><span>Cyberpunk 2077</span><span>Replaced</span>',
-  pixel: [46, 78, 58, 92, 40, 70, 54, 84].map(h => `<i style="height:${h}%"></i>`).join(''),
-  rotulo: '<span>Lê-se em<br>1 segundo</span>',
-};
 const BODY = {
   cols(c) { const g = el('div', 'cols');
     for (const it of c.itens) { const d = el('div', it.hot ? 'hot' : ''), n = el('div', 'n', it.n);
@@ -416,16 +377,10 @@ const BODY = {
     const s = el('div', 'swatches');   // cores de estado aparecem só como amostra da nota do índice
     s.innerHTML = '<i style="background:#FF7A18"></i><i style="background:#00E6DF"></i><i style="background:#FF2D9B"></i><span>base neon</span><i style="background:#1FE6A6"></i><i style="background:#FFC400"></i><i style="background:#C24B2B"></i><span>estados da nota: seguro · atenção · alto risco</span>';
     return [g, s]; },
-  mood(c) { const g = el('div', 'mood');
-    for (const t of c.tiles) { const d = el('div', 'tile'), v = el('div', 'vis ' + t.vis), cap = el('div', 'cap');
-      v.innerHTML = MOOD_VIS[t.vis]; cap.append(el('b', '', t.k), t.v); d.append(v, cap); g.append(d); }
-    return [g]; },
+  img(c) { const im = el('img', 'img'); im.src = c.src; im.alt = c.alt; im.draggable = false; return [im]; },
   voz(c) { const g = el('div', 'voz');
     g.append(el('div', 'th', 'Princípio'), el('div', 'th', 'Em vez de'), el('div', 'th'), el('div', 'th to', 'Dizemos'));
     for (const it of c.itens) g.append(el('div', 'k', it.k), el('div', 'de', it.de), el('div', 'arr', '→'), el('div', 'para', it.para));
-    return [g]; },
-  canvas(c) { const g = el('div', 'canvas');
-    for (const it of c.itens) { const d = el('div', it.hot ? 'hot' : ''); d.append(el('b', '', it.k), el('p', '', it.v)); g.append(d); }
     return [g]; },
 };
 function buildSlide(s, i) {
@@ -446,12 +401,12 @@ function buildSlide(s, i) {
   } else {
     const same = SLIDES.filter(x => x.etapa === s.etapa), k = same.indexOf(s) + 1;
     bar.append(el('span', 'chip', et.nome), el('span', 'passo', `0${k}/0${same.length} · ${s.passo}`));
-    const head = el('div', 'head'), h2 = el('h2', '', s.titulo + ' ');
-    if (s.destaque) h2.append(el('span', 'hl', s.destaque));
-    head.append(h2); if (s.subtitulo) head.append(el('p', 'sub', s.subtitulo));
-    frame.append(head);
+    const head = el('div', 'head');
+    if (s.titulo) { const h2 = el('h2', '', s.titulo + ' '); if (s.destaque) h2.append(el('span', 'hl', s.destaque)); head.append(h2); frame.append(head); }
+    if (s.subtitulo) head.append(el('p', 'sub', s.subtitulo));
+    if (s.corpo.lado) root.classList.add('lado');   // imagem numa coluna à direita; título e nota à esquerda
     body.append(...BODY[s.corpo.tipo](s.corpo));
-    if (s.nota) { const n = el('p', 'nota'); if (s.proposta) n.append(el('span', 'tag', 'Proposta')); n.append(s.nota); body.append(n); }
+    if (s.nota) { const n = el('p', 'nota'); if (s.proposta) n.append(el('span', 'tag', 'Proposta')); n.append(s.nota); (s.corpo.lado ? head : body).append(n); }
   }
   if (i === SLIDES.length - 1) ticker = [SLIDES[0].equipe, SLOGAN];   // letreiro só na abertura e no fechamento
   const brand = el('span', 'brand'); brand.append(el('b', '', 'JOGO'), el('i', '', 'JUSTO')); bar.append(brand);
