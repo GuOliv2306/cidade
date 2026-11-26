@@ -373,10 +373,12 @@ console.assert(SLIDES.length >= 1 && SLIDES.length <= 13, 'SLIDES deve ter de 1 
 
 /* ── ajustes ── */
 const FOV = 40, FILL = 0.85;          // painel ocupa 85% da tela quando a câmera para
+const FILL_IN = 0.885;                // do 2º telão da etapa em diante: só um pouco mais perto (se o zoom chamar atenção, está grande demais)
 const SPACING = 24, BW = 20, BD = 12; // distância entre prédios, largura e profundidade
 const PIXEL_ROWS = 270;               // altura aproximada do render do mundo antes do upscale
 const LED_COLS = 270;                 // LEDs por linha do telão (aproximado; ajustado para dar pixels inteiros)
 const HOP_MS = 1500, PANO_MS = 2200;
+const HOP = { dur: HOP_MS, arc: 7, yaw: .22 }, HOP_IN = { dur: 1000, arc: 2, yaw: .06 };   // salto entre etapas / dentro da mesma etapa
 
 /* ── telões em HTML (texto nítido, fora do render pixelado) ── */
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -528,13 +530,15 @@ void main(){
   light += smoothstep(.025, 0., abs(y - uOn)) * step(.001, uOn) * step(uOn, .999) * .8; // linha de acendimento
   gl_FragColor = vec4(vec3(light), clamp(dark + light, 0., 1.));
 }`;
-const uTime = { value: 0 }, uCells = { value: LED_COLS }, uMask = { value: 1 };
+const uTime = { value: 0 }, uCells = { value: LED_COLS }, uCellsIn = { value: LED_COLS }, uMask = { value: 1 };
 const panelGeo = new THREE.PlaneGeometry(16, 9);
 
 const span = SPACING * (SLIDES.length - 1);
 
 // prédios dos slides + pose da câmera em cada um
-const D = (9 / FILL) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
+const dist = fill => (9 / fill) / (2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
+const D = dist(FILL), D_IN = dist(FILL_IN);
+const inner = i => i > 0 && SLIDES[i - 1].etapa === SLIDES[i].etapa;   // não é o primeiro telão da etapa
 const BASES = ['#1d1a34', '#262138', '#1a2236', '#2b2233'];
 const lots = [], leds = [], slideEls = [], lotMeshes = [];
 const STOPS = SLIDES.map((s, i) => {
@@ -553,9 +557,9 @@ const STOPS = SLIDES.map((s, i) => {
   o.position.set(x, y, .4); o.scale.setScalar(0.01);      // 1600×900 px → 16×9 unidades
   scene.add(o);
   const led = new THREE.Mesh(panelGeo, new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: LED_FRAG, transparent: true, premultipliedAlpha: true, depthTest: false,
-    uniforms: { uTime, uCells, uMask, uOn: { value: 0 } } }));
+    uniforms: { uTime, uCells: inner(i) ? uCellsIn : uCells, uMask, uOn: { value: 0 } } }));
   led.position.set(x, y, .4); ledScene.add(led); leds.push(led.material.uniforms.uOn);
-  return { p: new THREE.Vector3(x, y, D + .4), q: new THREE.Quaternion() };   // +.4: o painel fica à frente da fachada
+  return { p: new THREE.Vector3(x, y, (inner(i) ? D_IN : D) + .4), q: new THREE.Quaternion() };   // +.4: o painel fica à frente da fachada
 });
 // última parada: panorâmica da rua inteira
 {
@@ -613,8 +617,9 @@ function go(n) {
   n = Math.max(0, Math.min(STOPS.length - 1, n));
   if (n === idx) return;
   const hop = !STOPS[idx].pano && !STOPS[n].pano, to = STOPS[n];
-  anim = { p0: camera.position.clone(), q0: camera.quaternion.clone(), p1: to.p, q1: to.q, t0: performance.now(),
-           dur: hop ? HOP_MS : PANO_MS, arc: hop ? 7 : 0, yaw: hop ? -Math.sign(to.p.x - camera.position.x) * .22 : 0 };
+  const h = hop && SLIDES[idx].etapa === SLIDES[n].etapa ? HOP_IN : HOP;
+  anim = { p0: camera.position.clone(), q0: camera.quaternion.clone(), p1: to.p, q1: to.q, t0: performance.now(), soft: h === HOP_IN,
+           dur: hop ? h.dur : PANO_MS, arc: hop ? h.arc : 0, yaw: hop ? -Math.sign(to.p.x - camera.position.x) * h.yaw : 0 };
   idx = n; flight = 0; mark(); history.replaceState(null, '', '#' + (n + 1));
 }
 addEventListener('keydown', e => {
@@ -645,8 +650,8 @@ function resize() {
   const k = Math.max(2, Math.round(H / PIXEL_ROWS));
   renderer.setSize(Math.ceil(W / k), Math.ceil(H / k), false);
   css.setSize(W, H); ledRenderer.setSize(W, H, false);
-  const wp = W * FILL;                                   // largura do telão na tela, com a câmera parada
-  uCells.value = wp / Math.max(3, Math.round(wp / LED_COLS));   // cada LED com um número inteiro de pixels
+  // largura do telão na tela, com a câmera parada; cada LED com um número inteiro de pixels
+  for (const [u, fill] of [[uCells, FILL], [uCellsIn, FILL_IN]]) { const wp = W * fill; u.value = wp / Math.max(3, Math.round(wp / LED_COLS)); }
 }
 addEventListener('resize', resize); resize();
 
@@ -672,7 +677,8 @@ renderer.setAnimationLoop(now => {
     }
   }
   if (anim) {
-    const k = Math.min(1, (now - anim.t0) / anim.dur), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, s = Math.sin(Math.PI * e);
+    const k = Math.min(1, (now - anim.t0) / anim.dur), s0 = (1 - Math.cos(Math.PI * k)) / 2;   // salto suave: seno, pico de velocidade menor que o cúbico
+    const e = anim.soft ? s0 : k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, s = Math.sin(Math.PI * e);
     camera.position.lerpVectors(anim.p0, anim.p1, e); camera.position.z += anim.arc * s;   // recua no meio do voo
     camera.quaternion.slerpQuaternions(anim.q0, anim.q1, e).multiply(tq.setFromAxisAngle(Y, anim.yaw * s));   // olha para onde vai
     flight = k;
