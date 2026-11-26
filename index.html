@@ -378,7 +378,11 @@ const SPACING = 24, BW = 20, BD = 12; // distância entre prédios, largura e pr
 const PIXEL_ROWS = 270;               // altura aproximada do render do mundo antes do upscale
 const LED_COLS = 270;                 // LEDs por linha do telão (aproximado; ajustado para dar pixels inteiros)
 const HOP_MS = 1500, PANO_MS = 2200;
-const HOP = { dur: HOP_MS, arc: 7, yaw: .22 }, HOP_IN = { dur: 1000, arc: 2, yaw: .06 };   // salto entre etapas / dentro da mesma etapa
+const HOP = { dur: HOP_MS, arc: 7, yaw: .22 }, HOP_IN = { dur: 850, arc: 1.5, yaw: .04 };   // salto entre etapas / dentro da mesma etapa
+// curva do salto dentro da etapa: parte do repouso sem tranco (velocidade e aceleração zero), pega velocidade
+// em 1/3 do tempo e passa o resto pousando; 3/4 do caminho já feito na metade do tempo (CDF da Beta(3,5))
+const glide = k => 1 - Math.pow(1 - k, 5) * ((1 - k) * (1 - k) + 7 * k * (1 - k) + 21 * k * k);
+console.assert(glide(0) === 0 && Math.abs(glide(1) - 1) < 1e-12 && glide(.5) > .75 && glide(.5) < .8, 'glide fora da curva');
 
 /* ── telões em HTML (texto nítido, fora do render pixelado) ── */
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -517,7 +521,7 @@ void main(){
 }`;
 // máscara por cima do HTML: grade de LEDs, faixa de refresh, e o acendimento de cima para baixo
 const LED_FRAG = `
-uniform float uTime, uOn, uCells, uMask; varying vec2 vUv;
+uniform float uTime, uOn, uCells, uMask, uSweep; varying vec2 vUv;
 void main(){
   vec2 g = vUv * vec2(uCells, uCells * 9. / 16.);
   vec2 f = abs(fract(g) - .5);
@@ -525,12 +529,12 @@ void main(){
   float fade = clamp((cell - 2.) / 1.5, 0., 1.);              // some quando o LED fica pequeno (evita moiré no voo)
   float dark = smoothstep(.30, .5, max(f.x, f.y)) * .26 * fade * uMask;
   float y = 1. - vUv.y;
-  dark = max(dark, step(uOn, y) * .62);                        // parte ainda apagada
+  dark = max(dark, mix((1. - uOn) * .62, step(uOn, y) * .62, uSweep));   // parte ainda apagada; sem varredura, o telão todo acende junto
   float light = smoothstep(.05, 0., abs(fract(y - uTime * .06) - .5)) * .035 * uMask;   // faixa de refresh
-  light += smoothstep(.025, 0., abs(y - uOn)) * step(.001, uOn) * step(uOn, .999) * .8; // linha de acendimento
+  light += smoothstep(.025, 0., abs(y - uOn)) * step(.001, uOn) * step(uOn, .999) * .8 * uSweep; // linha de acendimento
   gl_FragColor = vec4(vec3(light), clamp(dark + light, 0., 1.));
 }`;
-const uTime = { value: 0 }, uCells = { value: LED_COLS }, uCellsIn = { value: LED_COLS }, uMask = { value: 1 };
+const uTime = { value: 0 }, uCells = { value: LED_COLS }, uCellsIn = { value: LED_COLS }, uMask = { value: 1 }, uSweep = { value: 1 };
 const panelGeo = new THREE.PlaneGeometry(16, 9);
 
 const span = SPACING * (SLIDES.length - 1);
@@ -557,7 +561,7 @@ const STOPS = SLIDES.map((s, i) => {
   o.position.set(x, y, .4); o.scale.setScalar(0.01);      // 1600×900 px → 16×9 unidades
   scene.add(o);
   const led = new THREE.Mesh(panelGeo, new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: LED_FRAG, transparent: true, premultipliedAlpha: true, depthTest: false,
-    uniforms: { uTime, uCells: inner(i) ? uCellsIn : uCells, uMask, uOn: { value: 0 } } }));
+    uniforms: { uTime, uCells: inner(i) ? uCellsIn : uCells, uMask, uSweep, uOn: { value: 0 } } }));
   led.position.set(x, y, .4); ledScene.add(led); leds.push(led.material.uniforms.uOn);
   return { p: new THREE.Vector3(x, y, (inner(i) ? D_IN : D) + .4), q: new THREE.Quaternion() };   // +.4: o painel fica à frente da fachada
 });
@@ -620,6 +624,7 @@ function go(n) {
   const h = hop && SLIDES[idx].etapa === SLIDES[n].etapa ? HOP_IN : HOP;
   anim = { p0: camera.position.clone(), q0: camera.quaternion.clone(), p1: to.p, q1: to.q, t0: performance.now(), soft: h === HOP_IN,
            dur: hop ? h.dur : PANO_MS, arc: hop ? h.arc : 0, yaw: hop ? -Math.sign(to.p.x - camera.position.x) * h.yaw : 0 };
+  uSweep.value = anim.soft ? 0 : 1;   // linha branca de acendimento só ao entrar numa etapa
   idx = n; flight = 0; mark(); history.replaceState(null, '', '#' + (n + 1));
 }
 addEventListener('keydown', e => {
@@ -677,8 +682,8 @@ renderer.setAnimationLoop(now => {
     }
   }
   if (anim) {
-    const k = Math.min(1, (now - anim.t0) / anim.dur), s0 = (1 - Math.cos(Math.PI * k)) / 2;   // salto suave: seno, pico de velocidade menor que o cúbico
-    const e = anim.soft ? s0 : k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, s = Math.sin(Math.PI * e);
+    const k = Math.min(1, (now - anim.t0) / anim.dur);
+    const e = anim.soft ? glide(k) : k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, s = Math.sin(Math.PI * e);
     camera.position.lerpVectors(anim.p0, anim.p1, e); camera.position.z += anim.arc * s;   // recua no meio do voo
     camera.quaternion.slerpQuaternions(anim.q0, anim.q1, e).multiply(tq.setFromAxisAngle(Y, anim.yaw * s));   // olha para onde vai
     flight = k;
