@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-25T16:34:07.199Z",
+        "reason": "brand: BRAND.md/manual de marca define identidade neon sobre escuro; glow neon é token existente da apresentação"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-25T16:36:18.864Z",
+        "reason": "user confirmed: pediu manter o letreiro corrido na capa e no último telão"
+      },
+      {
+        "rule": "radial-halo",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-25T16:36:19.209Z",
+        "reason": "false positive: radial-gradient de 12px em .vis.led desenha a grade de pontos do LED do moodboard, não um halo; pré-existente"
+      }
+    ]
+  }
+}
